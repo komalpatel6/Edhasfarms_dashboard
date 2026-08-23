@@ -4,8 +4,9 @@ import { Area, AreaChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, 
 import { X } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CardTitle, MetricRow, PageHeader, Surface } from "@/components/app/ui-kit";
-import { soilGrid, soilMetrics, soilTrend } from "@/lib/mock-data";
+import { rowPlantTrend, soilGrid, soilMetrics, soilTrend } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { useTick } from "@/hooks/use-live-telemetry";
 
 export const Route = createFileRoute("/soil-intelligence")({
   head: () => ({
@@ -39,6 +40,23 @@ const cellColor = {
 export function SoilIntelligence() {
   const [range, setRange] = useState<(typeof ranges)[number]>("24 Hours");
   const [cell, setCell] = useState<{ row: string; index: number } | null>(null);
+  const tick = useTick(5000);
+  const selectedPlant = cell ? `${cell.row} · Plant ${cell.index + 1}` : "All plants";
+  const plantOffset = cell ? (Number(cell.row.replace("Row ", "")) * 3 + cell.index * 2) % 7 - 3 : 0;
+  const plantSoilTrend = soilTrend.map((point, index) => ({
+    ...point,
+    moisture: Math.max(0, point.moisture + plantOffset + [1, 0, -1, 1, 0, -1][index]!),
+    temp: Number((point.temp + plantOffset * 0.12 + [0, -0.2, 0.1, 0.3, 0, -0.1][index]!).toFixed(1)),
+  }));
+  const plantRowTrend = rowPlantTrend.map((point, index) => ({
+    ...point,
+    totalRows: Math.max(0, point.totalRows + (cell && index === 4 ? -1 : 0)),
+    plantsPerRow: Math.max(0, point.plantsPerRow + plantOffset + [0, 1, 0, -1, 0, 1, 0][index]!),
+  }));
+  const liveTemperatureTrend = plantSoilTrend.map((point, index) => ({
+    ...point,
+    temp: Number((point.temp + (((tick + index * 2) % 5) - 2) * 0.1).toFixed(1)),
+  }));
 
   return (
     <AppShell title="Soil Intelligence">
@@ -48,7 +66,7 @@ export function SoilIntelligence() {
       </div>
 
       {/* Sleek, Compact & Fully Responsive Soil KPI Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
         {soilMetrics.map((m) => {
           const isHealthy = m.tone === "healthy";
           return (
@@ -106,74 +124,6 @@ export function SoilIntelligence() {
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{range}</span>}>Moisture</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={soilTrend}>
-              <defs>
-                <linearGradient id="moistFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--sky)" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="var(--sky)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
-              <Tooltip {...chartTip} />
-              <Area type="monotone" dataKey="moisture" stroke="var(--sky)" strokeWidth={2} fill="url(#moistFill)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Surface>
-
-        <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{range}</span>}>Temperature</CardTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={soilTrend}>
-              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
-              <Tooltip {...chartTip} />
-              <Line type="monotone" dataKey="temp" stroke="var(--peach)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Surface>
-
-        <Surface>
-          <CardTitle>pH</CardTitle>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={soilTrend}>
-              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis domain={[5.5, 7.5]} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
-              <Tooltip {...chartTip} />
-              <Line type="monotone" dataKey="ph" stroke="var(--sage)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </Surface>
-
-        <Surface>
-          <CardTitle>EC &amp; NPK</CardTitle>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={soilTrend}>
-              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
-              <Tooltip {...chartTip} />
-              <Line type="monotone" dataKey="ec" stroke="var(--butter)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-center text-[13px]">
-            {[
-              { l: "N", v: 45 },
-              { l: "P", v: 22 },
-              { l: "K", v: 38 },
-            ].map((n) => (
-              <div key={n.l} className="rounded-lg bg-cream py-2">
-                <p className="text-[11px] text-muted-foreground">{n.l}</p>
-                <p className="mt-0.5 font-semibold text-sm">{n.v}</p>
-              </div>
-            ))}
-          </div>
-        </Surface>
-      </div>
-
       <Surface>
         <CardTitle
           right={
@@ -205,6 +155,69 @@ export function SoilIntelligence() {
         </div>
       </Surface>
 
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Surface>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Moisture</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={plantSoilTrend}>
+              <defs>
+                <linearGradient id="moistFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--sky)" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="var(--sky)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+              <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <Tooltip {...chartTip} />
+              <Area type="monotone" dataKey="moisture" stroke="var(--sky)" strokeWidth={2} fill="url(#moistFill)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Surface>
+
+        <Surface>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Temperature</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={liveTemperatureTrend}>
+              <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+              <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <Tooltip {...chartTip} />
+              <Line type="monotone" dataKey="temp" stroke="var(--peach)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Surface>
+
+        <Surface>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Total rows</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={plantRowTrend}>
+              <defs>
+                <linearGradient id="rowsFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--leaf)" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="var(--leaf)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+              <YAxis domain={[20, 25]} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <Tooltip {...chartTip} />
+              <Area type="monotone" dataKey="totalRows" name="Total rows" stroke="var(--leaf)" strokeWidth={2} fill="url(#rowsFill)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Surface>
+
+        <Surface>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Plants per row</CardTitle>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={plantRowTrend}>
+              <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+              <YAxis domain={[48, 54]} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <Tooltip {...chartTip} />
+              <Line type="monotone" dataKey="plantsPerRow" name="Plants per row" stroke="var(--teal)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Surface>
+
+      </div>
+
       {cell && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-foreground/20" onClick={() => setCell(null)} />
@@ -219,8 +232,6 @@ export function SoilIntelligence() {
             <div className="mt-4">
               <MetricRow label="Moisture" value="31%" />
               <MetricRow label="Temperature" value="25.1°C" />
-              <MetricRow label="pH" value="5.9" />
-              <MetricRow label="EC" value="2.1" />
             </div>
             <p className="mt-4 text-[12px] text-muted-foreground">13 Aug 2026 · 10:42 AM</p>
           </div>

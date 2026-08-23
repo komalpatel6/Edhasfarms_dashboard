@@ -180,21 +180,28 @@ export const waterTrend = [
 
 export const soilMetrics = [
   { label: "Moisture", value: "42%", tone: "healthy" },
+  { label: "Total rows", value: "24", tone: "healthy" },
+  { label: "Plants per row", value: "52", tone: "healthy" },
   { label: "Temperature", value: "24.8°C", tone: "healthy" },
-  { label: "pH", value: "6.4", tone: "healthy" },
-  { label: "EC", value: "1.2", tone: "healthy" },
-  { label: "Nitrogen", value: "45", tone: "healthy" },
-  { label: "Phosphorus", value: "22", tone: "warning" },
-  { label: "Potassium", value: "38", tone: "healthy" },
 ];
 
 export const soilTrend = [
-  { t: "00:00", moisture: 44, temp: 22.4, ph: 6.5, ec: 1.1 },
-  { t: "04:00", moisture: 43, temp: 21.9, ph: 6.5, ec: 1.1 },
-  { t: "08:00", moisture: 41, temp: 23.6, ph: 6.4, ec: 1.2 },
-  { t: "12:00", moisture: 39, temp: 26.1, ph: 6.3, ec: 1.3 },
-  { t: "16:00", moisture: 40, temp: 25.4, ph: 6.4, ec: 1.2 },
-  { t: "20:00", moisture: 42, temp: 24.8, ph: 6.4, ec: 1.2 },
+  { t: "00:00", moisture: 44, temp: 22.4 },
+  { t: "04:00", moisture: 43, temp: 21.9 },
+  { t: "08:00", moisture: 41, temp: 23.6 },
+  { t: "12:00", moisture: 39, temp: 26.1 },
+  { t: "16:00", moisture: 40, temp: 25.4 },
+  { t: "20:00", moisture: 42, temp: 24.8 },
+];
+
+export const rowPlantTrend = [
+  { day: "07 Aug", totalRows: 23, plantsPerRow: 50 },
+  { day: "08 Aug", totalRows: 23, plantsPerRow: 51 },
+  { day: "09 Aug", totalRows: 24, plantsPerRow: 51 },
+  { day: "10 Aug", totalRows: 24, plantsPerRow: 52 },
+  { day: "11 Aug", totalRows: 24, plantsPerRow: 50 },
+  { day: "12 Aug", totalRows: 24, plantsPerRow: 52 },
+  { day: "13 Aug", totalRows: 24, plantsPerRow: 52 },
 ];
 
 export type SoilCell = "healthy" | "warning" | "critical";
@@ -321,7 +328,7 @@ export const users = [
 
 export type HouseSummary = {
   crop: { healthy: number; diseased: number; missing: number; stressed: number; suspected: number; fruits: number };
-  soil: { moisture: number; temp: number; ph: number; ec: number };
+  soil: { moisture: number; temp: number };
   soilTrend: { t: string; moisture: number; temp: number }[];
 };
 
@@ -340,17 +347,17 @@ const trendFor = (
 export const houseSummary: Record<string, HouseSummary> = {
   "Poly-01": {
     crop: { healthy: 1192, diseased: 14, missing: 8, stressed: 104, suspected: 42, fruits: 3682 },
-    soil: { moisture: 42, temp: 24.8, ph: 6.4, ec: 1.2 },
+    soil: { moisture: 42, temp: 24.8 },
     soilTrend: trendFor(42, 24.8),
   },
   "Poly-02": {
     crop: { healthy: 826, diseased: 6, missing: 12, stressed: 61, suspected: 25, fruits: 2410 },
-    soil: { moisture: 38, temp: 26.2, ph: 6.1, ec: 1.4 },
+    soil: { moisture: 38, temp: 26.2 },
     soilTrend: trendFor(38, 26.2, [-3, -4, -2, 1, 2, 0, -1], [-2.1, -2.8, -1.2, 2, 1.3, 0, -0.9]),
   },
   "Poly-03": {
     crop: { healthy: 1498, diseased: 21, missing: 17, stressed: 132, suspected: 58, fruits: 4120 },
-    soil: { moisture: 47, temp: 23.1, ph: 6.7, ec: 1.1 },
+    soil: { moisture: 47, temp: 23.1 },
     soilTrend: trendFor(47, 23.1, [2, 3, 1, -2, -1, 0, 1], [-2.4, -3, -1.2, 1.4, 0.9, 0, -0.8]),
   },
 };

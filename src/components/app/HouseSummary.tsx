@@ -54,8 +54,6 @@ export function HouseSummary({
     soil: {
       moisture: drift(base.soil.moisture, tick, seed + 6, { abs: 1.5 }),
       temp: drift(base.soil.temp, tick, seed + 7, { abs: 0.4, decimals: 1 }),
-      ph: drift(base.soil.ph, tick, seed + 8, { abs: 0.05, decimals: 1 }),
-      ec: drift(base.soil.ec, tick, seed + 9, { abs: 0.05, decimals: 1 }),
     },
     soilTrend:
       tick === 0
@@ -100,7 +98,7 @@ export function HouseSummary({
               Latest AI inspection results · {house.name}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5">
             <Stat value={s.crop.healthy.toLocaleString()} label="Healthy plants" tone="leaf" />
             <Stat value={String(s.crop.diseased)} label="Diseased" tone="critical" />
             <Stat value={String(s.crop.missing)} label="Missing" tone="muted" />
@@ -117,11 +115,9 @@ export function HouseSummary({
               Rolling 24 hour sensor readings · {house.name}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             <Stat value={`${s.soil.moisture}%`} label="Moisture" tone="teal" />
             <Stat value={`${s.soil.temp}°C`} label="Temp" />
-            <Stat value={String(s.soil.ph)} label="pH" tone="leaf" />
-            <Stat value={String(s.soil.ec)} label="EC" />
           </div>
           <div className="mt-3 h-[110px]">
             <ResponsiveContainer width="100%" height="100%">

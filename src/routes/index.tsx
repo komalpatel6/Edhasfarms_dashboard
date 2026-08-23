@@ -322,7 +322,7 @@ function Dashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {[
-          { to: "/soil-intelligence" as const, icon: Droplets, t: "Soil Intelligence", d: "Moisture, pH, EC and NPK trends." },
+          { to: "/soil-intelligence" as const, icon: Droplets, t: "Soil Intelligence", d: "Moisture and temperature trends." },
           { to: "/inspections" as const, icon: Bot, t: "Inspection History", d: "Every rover run with drill-down." },
           { to: "/crop-intelligence" as const, icon: Sprout, t: "Crop Intelligence", d: "Plants, disease, fruit and growth." },
         ].map((c) => (

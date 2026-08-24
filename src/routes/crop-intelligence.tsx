@@ -41,6 +41,7 @@ import {
   statusTone,
 } from "@/components/app/ui-kit";
 import { currentUser, houseSummary, polyhouses } from "@/lib/mock-data";
+import { useAnomalies, usePolyhouses } from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
 
 const tabs = ["Plants", "Disease", "Fruits", "Growth", "Water Stress"] as const;
@@ -76,6 +77,7 @@ const chartTip = {
   },
 };
 
+<<<<<<< HEAD
 export function CropIntelligence() {
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -158,6 +160,94 @@ export function CropIntelligence() {
 
   const [drawer, setDrawer] = useState<(typeof housePlants)[number] | null>(null);
   const canManage = currentUser.role !== "Viewer";
+=======
+const rowProduction = [
+  { row: "Row 01", fruits: 340 },
+  { row: "Row 02", fruits: 410 },
+  { row: "Row 03", fruits: 290 },
+  { row: "Row 04", fruits: 380 },
+];
+
+const growthTrend = [
+  { day: "Mon", fruits: 3200, plants: 1240 },
+  { day: "Tue", fruits: 3350, plants: 1242 },
+  { day: "Wed", fruits: 3480, plants: 1245 },
+  { day: "Thu", fruits: 3682, plants: 1248 },
+];
+
+const waterStress = [
+  { name: "Optimal", value: 85 },
+  { name: "Moderate", value: 12 },
+  { name: "Severe", value: 3 },
+];
+
+const waterTrend = [
+  { day: "Mon", stress: 10 },
+  { day: "Tue", stress: 12 },
+  { day: "Wed", stress: 15 },
+  { day: "Thu", stress: 11 },
+];
+
+function CropIntelligence() {
+  const { data: polyhouses, loading: loadingPoly } = usePolyhouses();
+  const { data: apiAnomalies, loading: loadingAno } = useAnomalies();
+  const [tab, setTab] = useState<Tab>("Plants");
+  const [drawer, setDrawer] = useState<any | null>(null);
+  const canManage = true;
+
+  if (loadingPoly || loadingAno) {
+    return (
+      <AppShell title="Crop Intelligence">
+        <div className="flex h-64 items-center justify-center text-muted-foreground">Loading AI crop telemetry...</div>
+      </AppShell>
+    );
+  }
+
+  if (polyhouses.length === 0) {
+    return (
+      <AppShell title="Crop Intelligence">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center my-8">
+          <h2 className="text-xl font-bold text-foreground">No Polyhouse Data Available</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            There are currently no polyhouses created in the database. Add a polyhouse on the Polyhouses page to begin AI crop analysis.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Construct dynamic plant rows derived from active database polyhouses
+  const firstHouse = polyhouses[0];
+  const totalPlantsCount = polyhouses.reduce((acc, p) => acc + (p.grid_rows * p.grid_bays * 10), 0);
+  const gridRows = firstHouse ? firstHouse.grid_rows : 10;
+  const gridBays = firstHouse ? firstHouse.grid_bays : 10;
+
+  const plantsList = Array.from({ length: Math.min(gridRows * gridBays, 20) }).map((_, i) => {
+    const rowNum = Math.floor(i / gridBays) + 1;
+    const bayNum = (i % gridBays) + 1;
+    const hasAnomaly = apiAnomalies.find((a) => a.grid_x === bayNum && a.grid_y === rowNum);
+    const housePrefix = firstHouse?.id ? firstHouse.id.slice(0, 4).toUpperCase() : "POLY";
+    return {
+      id: `P-${housePrefix}-${String(i + 1).padStart(3, "0")}`,
+      row: `Row ${rowNum}`,
+      position: `Grid (${bayNum}, ${rowNum})`,
+      status: hasAnomaly ? hasAnomaly.severity : "Healthy",
+      lastInspection: new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
+      fruits: 10 + (i % 8),
+      previousFruits: 8 + (i % 8),
+    };
+  });
+
+  const anomaliesList = apiAnomalies.map((a) => ({
+    id: a.id,
+    plant: `Grid (${a.grid_x || 1}, ${a.grid_y || 1})`,
+    row: `Row ${a.grid_y || 1}`,
+    disease: a.issue_type || a.title,
+    confidence: Math.round((a.ai_confidence <= 1 ? a.ai_confidence * 100 : a.ai_confidence) || 90),
+    causes: a.causes || "High canopy humidity & poor air circulation",
+    status: a.status,
+  }));
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
 
   // Dynamic diseases detected in this polyhouse
   const baseDiseases = [
@@ -381,6 +471,7 @@ export function CropIntelligence() {
       {tab === "Plants" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
+<<<<<<< HEAD
             <KpiCard
               label="Total Plants"
               value={totalPlants.toLocaleString()}
@@ -400,6 +491,11 @@ export function CropIntelligence() {
               hint="Not detected by rover"
               tone="peach"
             />
+=======
+            <KpiCard label="Total Plants" value={totalPlantsCount.toLocaleString()} tone="sage" />
+            <KpiCard label="Inspected" value={totalPlantsCount.toLocaleString()} delta="100%" tone="mint" />
+            <KpiCard label="Anomalies" value={String(apiAnomalies.length)} hint="AI Flagged" tone="peach" />
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
           </div>
 
           <Surface className="p-0 overflow-hidden">
@@ -446,7 +542,11 @@ export function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
+<<<<<<< HEAD
                   {filteredPlants.map((p) => (
+=======
+                  {plantsList.map((p) => (
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -485,9 +585,15 @@ export function CropIntelligence() {
       {tab === "Disease" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
+<<<<<<< HEAD
             <KpiCard label="Healthy Plants" value={healthyPlants.toLocaleString()} tone="mint" hint="Zero infection signs" />
             <KpiCard label="Suspected" value={String(suspectedDisease)} tone="butter" hint="Requires confirmation" />
             <KpiCard label="High Priority" value={String(criticalDisease)} tone="peach" hint="Action required" />
+=======
+            <KpiCard label="Healthy" value="1,192" tone="mint" />
+            <KpiCard label="Suspected" value="42" tone="butter" />
+            <KpiCard label="High Priority" value={String(anomaliesList.length)} tone="peach" />
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
           </div>
 
           <Surface className="p-0">
@@ -504,23 +610,34 @@ export function CropIntelligence() {
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
+<<<<<<< HEAD
                   <tr className="border-b border-border text-left text-muted-foreground bg-muted/20">
                     {["Plant ID", "Row", "Disease Detected", "AI Confidence", "Status", ""].map((h) => (
                       <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">
                         {h}
                       </th>
+=======
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    {["Plant", "Row", "Disease", "AI Confidence", "Probable Causes", "Status", ""].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                     ))}
                   </tr>
                 </thead>
                 <tbody>
+<<<<<<< HEAD
                   {houseDiseases.map((d) => (
+=======
+                  {anomaliesList.map((d) => (
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
-                      key={d.plant}
+                      key={d.id || d.plant}
                       className={cn(
                         "border-b border-border/60 last:border-0 transition-colors",
                         d.confidence >= 90 && "bg-critical-soft/30"
                       )}
                     >
+<<<<<<< HEAD
                       <td className="px-5 py-3 font-semibold text-foreground">{d.plant}</td>
                       <td className="px-5 py-3">Row {d.row}</td>
                       <td className="px-5 py-3 font-medium text-foreground">{d.disease}</td>
@@ -529,6 +646,13 @@ export function CropIntelligence() {
                           {d.confidence}%
                         </span>
                       </td>
+=======
+                      <td className="px-5 py-3 font-medium">{d.plant}</td>
+                      <td className="px-5 py-3">{d.row}</td>
+                      <td className="px-5 py-3">{d.disease}</td>
+                      <td className="px-5 py-3">{d.confidence}%</td>
+                      <td className="px-5 py-3 text-muted-foreground max-w-xs truncate">{d.causes}</td>
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                       <td className="px-5 py-3">
                         <StatusBadge tone={statusTone(d.status)}>{d.status}</StatusBadge>
                       </td>
@@ -619,7 +743,11 @@ export function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
+<<<<<<< HEAD
                   {housePlants.slice(0, 8).map((p) => (
+=======
+                  {plantsList.slice(0, 8).map((p) => (
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -677,12 +805,19 @@ export function CropIntelligence() {
           <Surface className="lg:col-span-2">
             <CardTitle>Plants Lagging In Growth · {selectedHouse.name}</CardTitle>
             <div className="grid gap-4 sm:grid-cols-3">
+<<<<<<< HEAD
               {housePlants.slice(10, 13).map((p) => (
                 <div key={p.id} className="rounded-xl border border-border/60 bg-muted/30 p-4">
                   <p className="text-[14px] font-bold text-foreground">🌱 {p.id}</p>
                   <p className="mt-1 text-[12px] text-muted-foreground">
                     {p.row} · Position {p.position}
                   </p>
+=======
+              {plantsList.slice(0, 3).map((p) => (
+                <div key={p.id} className="rounded-xl bg-cream p-4">
+                  <p className="text-[14px] font-medium">🌱 {p.id}</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground">{p.row} · Position {p.position}</p>
+>>>>>>> f5556ea352743e33053c554a172de7123da60209
                   <div className="mt-3 flex items-end gap-4 text-[13px]">
                     <div>
                       <p className="text-muted-foreground text-xs">Previous</p>

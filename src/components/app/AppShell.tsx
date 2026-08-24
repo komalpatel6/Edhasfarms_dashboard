@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bell,
   Bot,
@@ -13,9 +13,9 @@ import {
   History,
   Users,
   X,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { currentUser } from "@/lib/mock-data";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -66,6 +66,25 @@ function NavLink({
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+
+  useEffect(() => {
+    const email = localStorage.getItem("edhaas_user_email") || "edhas@test.com";
+    const role = localStorage.getItem("edhaas_user_role") || "Admin";
+    const name = email ? email.split("@")[0] || "edhas" : "edhas";
+    setUser({ name: name.charAt(0).toUpperCase() + name.slice(1), role });
+  }, []);
+
+  const userName = user?.name || "Edhaas";
+  const userRole = user?.role || "Admin";
+
+  const handleLogout = () => {
+    localStorage.removeItem("edhaas_access_token");
+    localStorage.removeItem("edhaas_user_email");
+    localStorage.removeItem("edhaas_user_role");
+    localStorage.removeItem("edhasfarms-authenticated");
+    window.location.href = "/login";
+  };
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -90,14 +109,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-full bg-sidebar-primary text-[13px] font-medium text-sidebar-primary-foreground">
-            {currentUser.name.charAt(0)}
-          </span>
-          <div className="leading-tight">
-            <p className="text-[15px] font-medium text-sidebar-foreground">{currentUser.name}</p>
-            <p className="text-[13px] text-sidebar-foreground/70">{currentUser.role}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[13px] font-medium text-sidebar-primary-foreground">
+              {userName.charAt(0)}
+            </span>
+            <div className="leading-tight truncate">
+              <p className="text-[14px] font-medium text-sidebar-foreground truncate">{userName}</p>
+              <p className="text-[12px] text-sidebar-foreground/70 truncate">{userRole}</p>
+            </div>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Sign Out"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-destructive"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -130,15 +158,25 @@ export function AppShell({ children }: { title?: string; children: ReactNode }) 
       )}
 
       <div className="lg:pl-64">
-        <button
-          onClick={() => setOpen(true)}
-          className="sticky top-2 z-30 ml-2 mt-2 rounded-xl border border-border bg-card p-2 text-muted-foreground shadow-sm hover:bg-accent lg:hidden"
-          aria-label="Open menu"
-        >
-          <Menu className="size-4" />
-        </button>
+        {/* Mobile Top Header Bar with Centered Brand Name */}
+        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-card/95 px-3 py-2.5 backdrop-blur-md lg:hidden">
+          <button
+            onClick={() => setOpen(true)}
+            className="flex size-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground shadow-2xs hover:bg-accent"
+            aria-label="Open menu"
+          >
+            <Menu className="size-4" />
+          </button>
 
-        <main className="mx-auto max-w-[1440px] space-y-3 px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4">{children}</main>
+          <div className="flex items-center gap-1.5 font-bold tracking-tight text-foreground text-base">
+            <span className="text-lg">🌿</span>
+            <span>Edhasfarms</span>
+          </div>
+
+          <div className="size-9 shrink-0" />
+        </header>
+
+        <main className="mx-auto max-w-[1440px] space-y-2.5 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-4">{children}</main>
       </div>
     </div>
   );

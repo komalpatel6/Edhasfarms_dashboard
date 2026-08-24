@@ -11,7 +11,12 @@ import {
   Surface,
   statusTone,
 } from "@/components/app/ui-kit";
-import { alerts, diseases, inspections } from "@/lib/mock-data";
+
+const inspections = [
+  { id: "INS-2041", date: "13 Aug 2026", rover: "RVR-001", rows: 24, plants: 1248, fruits: 3682, status: "Complete" },
+];
+const diseases: any[] = [];
+const alerts: any[] = [];
 
 export const Route = createFileRoute("/inspections/$id")({
   head: () => ({

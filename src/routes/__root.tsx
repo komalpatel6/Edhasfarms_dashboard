@@ -82,17 +82,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Overview of every polyhouse: crop health charts, fruit production, rover fleet telemetry and live inspection map.",
+          "Overview of every polyhouse: crop health charts, fruit production, Rover telemetry and live inspection map.",
       },
       { property: "og:title", content: "Edhasfarms" },
       {
         property: "og:description",
-        content: "Overview of every polyhouse: crop health charts, fruit production, rover fleet telemetry and live inspection map.",
+        content: "Overview of every polyhouse: crop health charts, fruit production, Rover telemetry and live inspection map.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Edhasfarms" },
-      { name: "twitter:description", content: "Overview of every polyhouse: crop health charts, fruit production, rover fleet telemetry and live inspection map." },
+      { name: "twitter:description", content: "Overview of every polyhouse: crop health charts, fruit production, Rover telemetry and live inspection map." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5eb16acec43db1f1309f94fd879954b9/id-preview-a9f82b6a--d4296773-fdd3-4b63-acb1-cadd5c2465c6.lovable.app-1786784499514.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5eb16acec43db1f1309f94fd879954b9/id-preview-a9f82b6a--d4296773-fdd3-4b63-acb1-cadd5c2465c6.lovable.app-1786784499514.png" },
     ],

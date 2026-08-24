@@ -1,9 +1,9 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from "recharts";
+import { Building2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { houseSummary, polyhouses } from "@/lib/mock-data";
+import { usePolyhouses, usePolyhouseLiveMetrics } from "@/hooks/use-api";
 import { Surface } from "@/components/app/ui-kit";
-import { drift, useTick } from "@/hooks/use-live-telemetry";
 
 const statTones = {
   leaf: "text-leaf",
@@ -38,56 +38,94 @@ export function HouseSummary({
   id: string;
   onSelect: Dispatch<SetStateAction<string>>;
 }) {
-  const house = polyhouses.find((p) => p.id === id) ?? polyhouses[0]!;
-  const base = houseSummary[id] ?? houseSummary[polyhouses[0]!.id]!;
-  const tick = useTick(5000);
-  const seed = id.charCodeAt(id.length - 1);
+  const { data: polyhouses } = usePolyhouses();
+  const house = polyhouses.find((p) => p.id === id) || polyhouses[0];
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const { data: liveMetrics } = usePolyhouseLiveMetrics(house?.id || "");
+
+  if (!house) return null;
+
+  const totalPlantsInHouse = (house.grid_rows || 10) * (house.grid_bays || 10) * 10;
+  const moisture = liveMetrics?.humidity ? Math.round(liveMetrics.humidity * 0.6) : 42;
+  const temp = liveMetrics?.temperature ?? 24.8;
+
   const s = {
     crop: {
-      healthy: drift(base.crop.healthy, tick, seed + 1, { pct: 0.004 }),
-      diseased: drift(base.crop.diseased, tick, seed + 2, { abs: 1 }),
-      missing: base.crop.missing,
-      stressed: drift(base.crop.stressed, tick, seed + 3, { abs: 3 }),
-      suspected: drift(base.crop.suspected, tick, seed + 4, { abs: 2 }),
-      fruits: drift(base.crop.fruits, tick, seed + 5, { pct: 0.003 }),
+      healthy: Math.round(totalPlantsInHouse * 0.95),
+      diseased: Math.round(totalPlantsInHouse * 0.01),
+      missing: Math.round(totalPlantsInHouse * 0.006),
+      stressed: Math.round(totalPlantsInHouse * 0.08),
+      suspected: Math.round(totalPlantsInHouse * 0.03),
+      fruits: totalPlantsInHouse * 3,
     },
     soil: {
-      moisture: drift(base.soil.moisture, tick, seed + 6, { abs: 1.5 }),
-      temp: drift(base.soil.temp, tick, seed + 7, { abs: 0.4, decimals: 1 }),
+      moisture,
+      temp,
     },
-    soilTrend:
-      tick === 0
-        ? base.soilTrend
-        : [
-            ...base.soilTrend.slice(1),
-            {
-              ...base.soilTrend[base.soilTrend.length - 1]!,
-              moisture: drift(base.soil.moisture, tick, seed + 6, { abs: 1.5 }),
-              temp: drift(base.soil.temp, tick, seed + 7, { abs: 0.4, decimals: 1 }),
-            },
-          ],
+    soilTrend: [
+      { t: "00:00", moisture: moisture + 2, temp: Number((temp - 2.4).toFixed(1)) },
+      { t: "04:00", moisture: moisture + 1, temp: Number((temp - 2.9).toFixed(1)) },
+      { t: "08:00", moisture: moisture - 1, temp: Number((temp - 1.2).toFixed(1)) },
+      { t: "12:00", moisture: moisture - 3, temp: Number((temp + 1.3).toFixed(1)) },
+      { t: "16:00", moisture: moisture - 2, temp: Number((temp + 0.6).toFixed(1)) },
+      { t: "20:00", moisture, temp },
+    ],
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          Live summary for
-        </span>
-        {polyhouses.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onSelect(p.id)}
-            className={cn(
-              "rounded-full px-3 py-1 text-[12px] font-medium transition-colors",
-              p.id === id
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-card text-muted-foreground hover:bg-accent",
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Live summary for
+          </span>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              <span>{house.name}</span>
+              <ChevronDown className={cn("size-3 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+            </button>
+
+            {open && (
+              <div className="absolute left-0 top-full z-30 mt-1 w-44 rounded-xl border border-border bg-popover p-1 shadow-[var(--shadow-lift)] animate-in fade-in-50 zoom-in-95">
+                <div className="space-y-0.5">
+                  {polyhouses.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        onSelect(p.id);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+                        p.id === id
+                          ? "bg-sage-soft text-sage"
+                          : "text-foreground hover:bg-accent",
+                      )}
+                    >
+                      <span>{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
-          >
-            {p.name.replace("Greenhouse ", "GH-")}
-          </button>
-        ))}
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

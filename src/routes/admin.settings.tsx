@@ -3,7 +3,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { CardTitle, MetricRow, PageHeader, Surface } from "@/components/app/ui-kit";
-import { currentUser } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/settings")({
@@ -64,13 +63,13 @@ function SettingsPage() {
             <div className="max-w-md space-y-4">
               <div>
                 <label className="text-[13px] text-muted-foreground">Name</label>
-                <input defaultValue={currentUser.name} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
+                <input defaultValue="Edhaas Admin" className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
               </div>
               <div>
                 <label className="text-[13px] text-muted-foreground">Email</label>
-                <input defaultValue={currentUser.email} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
+                <input defaultValue="admin@edhaas.com" className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
               </div>
-              <MetricRow label="Role" value={currentUser.role} />
+              <MetricRow label="Role" value="Admin" />
               <button
                 onClick={() => toast.success("Profile saved")}
                 className="rounded-xl bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90"

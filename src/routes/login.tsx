@@ -1,15 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, Leaf, Lock, ShieldCheck, Sprout, User } from "lucide-react";
 import heroImage from "@/assets/login-hero.jpg";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in · BellPepper AI" },
-      { name: "description", content: "Sign in to BellPepper AI — intelligent crop inspection and polyhouse monitoring." },
-      { property: "og:title", content: "Sign in · BellPepper AI" },
-      { property: "og:description", content: "Intelligent crop inspection and polyhouse monitoring." },
+      { title: "Sign in · Edhasfarms" },
+      { name: "description", content: "Sign in to Edhasfarms for smart farm and polyhouse monitoring." },
+      { property: "og:title", content: "Sign in · Edhasfarms" },
+      { property: "og:description", content: "Smart farm and polyhouse monitoring." },
     ],
   }),
   component: Login,
@@ -19,12 +19,29 @@ function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (email.trim().toLowerCase() !== "komal@gmail.com" || password !== "patel@123") {
+      setError("The email or password is incorrect.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    localStorage.setItem("edhasfarms-authenticated", "true");
+    setTimeout(() => navigate({ to: "/" }), 400);
+  };
 
   return (
     <div className="relative min-h-screen bg-background">
       <img
         src={heroImage}
-        alt="Bell pepper plants inside a modern polyhouse with an inspection rover"
+        alt="Healthy crops growing in a modern farm polyhouse"
         className="absolute inset-0 size-full object-cover"
       />
       <div className="absolute inset-0 bg-[linear-gradient(105deg,var(--primary)_0%,color-mix(in_oklab,var(--primary)_88%,black)_45%,color-mix(in_oklab,var(--primary)_55%,transparent)_100%)] opacity-95" />
@@ -36,8 +53,8 @@ function Login() {
               <Leaf className="size-5" />
             </span>
             <div className="leading-tight text-white">
-              <p className="text-[15px] font-semibold tracking-tight">BellPepper AI</p>
-              <p className="text-[12px] text-white/70">Rover Management &amp; Monitoring System</p>
+              <p className="text-[15px] font-semibold tracking-tight">Edhasfarms</p>
+              <p className="text-[12px] text-white/70">Smart Farm Management</p>
             </div>
           </div>
           <span className="hidden items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-[12px] text-white/85 ring-1 ring-white/20 sm:inline-flex">
@@ -51,17 +68,17 @@ function Login() {
               <Sprout className="size-3.5" /> AI Agriculture Platform
             </span>
             <h2 className="mt-6 max-w-xl text-[42px] font-semibold leading-[1.1] tracking-tight">
-              Intelligent crop inspection for every polyhouse.
+              Smarter decisions for every growing season.
             </h2>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-white/80">
-              Track rover inspections, disease detections, soil intelligence and yield trends —
-              in one calm, unified control centre.
+              Monitor crop health, soil conditions, irrigation and field activity from one
+              simple farm workspace.
             </p>
             <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4">
               {[
                 { k: "Polyhouses", v: "12" },
                 { k: "Plants tracked", v: "18.4k" },
-                { k: "Inspection accuracy", v: "98.2%" },
+                { k: "Crop health", v: "98.2%" },
               ].map((s) => (
                 <div key={s.k} className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/15">
                   <dd className="text-[22px] font-semibold">{s.v}</dd>
@@ -75,16 +92,12 @@ function Login() {
             <span className="block h-1 w-12 rounded-full bg-saffron" />
             <h1 className="mt-5 text-[24px] font-semibold tracking-tight text-foreground">Sign in</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Use your registered credentials to continue.
+              Welcome back. Enter your details to manage your farm.
             </p>
 
             <form
               className="mt-7 space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setLoading(true);
-                setTimeout(() => navigate({ to: "/" }), 600);
-              }}
+              onSubmit={handleSubmit}
             >
               <div>
                 <label className="text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground" htmlFor="email">
@@ -95,7 +108,11 @@ function Login() {
                   <input
                     id="email"
                     type="email"
-                    defaultValue="aman@bellpepper.ai"
+                    placeholder="you@farm.com"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                     className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-3.5 text-[14px] outline-none transition-colors focus:border-leaf focus:ring-2 focus:ring-leaf-soft"
                   />
                 </div>
@@ -110,7 +127,11 @@ function Login() {
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    defaultValue="password"
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
                     className="w-full rounded-xl border border-border bg-background py-3 pl-10 pr-10 text-[14px] outline-none transition-colors focus:border-leaf focus:ring-2 focus:ring-leaf-soft"
                   />
                   <button
@@ -138,18 +159,19 @@ function Login() {
                 disabled={loading}
                 className="w-full rounded-xl bg-primary px-4 py-3 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
               >
-                {loading ? "Signing in…" : "Login"}
+                {loading ? "Signing in…" : "Sign in to farm"}
               </button>
+              {error && <p role="alert" className="text-center text-[13px] text-destructive">{error}</p>}
             </form>
 
             <p className="mt-6 border-t border-border pt-5 text-center text-[12px] leading-relaxed text-muted-foreground">
-              Access is restricted to authorised farm operators and administrators.
+              Access is reserved for authorised farm operators and administrators.
             </p>
           </section>
         </main>
 
         <footer className="px-6 pb-6 text-center text-[12px] text-white/65 lg:px-12">
-          © 2026 BellPepper AI · Smart Polyhouse Monitoring
+          © 2026 Edhasfarms · Smart Farm Management
         </footer>
       </div>
     </div>

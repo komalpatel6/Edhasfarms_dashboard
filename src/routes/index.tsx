@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Bug, Droplets, Leaf, Sprout, Building2, Bot } from "lucide-react";
 import {
   Area,
@@ -28,7 +28,7 @@ import {
 } from "@/components/app/ui-kit";
 import { alerts, fleet, houseSummary, polyhouses } from "@/lib/mock-data";
 import { drift, useTick } from "@/hooks/use-live-telemetry";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -82,6 +82,23 @@ const tooltipStyle = {
 } as const;
 
 function Dashboard() {
+  const navigate = useNavigate();
+  const [authorised, setAuthorised] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const signedIn = localStorage.getItem("edhasfarms-authenticated") === "true";
+    setAuthorised(signedIn);
+    if (!signedIn) navigate({ to: "/login", replace: true });
+  }, [navigate]);
+
+  if (authorised !== true) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
+  return <DashboardContent />;
+}
+
+function DashboardContent() {
   const [selectedHouseId, setSelectedHouseId] = useState(polyhouses[0]!.id);
   const selectedHouse = polyhouses.find((house) => house.id === selectedHouseId) ?? polyhouses[0]!;
   const selectedSummary = houseSummary[selectedHouse.id] ?? houseSummary[polyhouses[0]!.id]!;

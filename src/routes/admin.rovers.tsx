@@ -3,13 +3,13 @@ import { useState } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { fleet } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { 
-  Bot, 
-  Battery, 
-  Wifi, 
-  Activity, 
-  RefreshCw, 
-  Cpu, 
+import {
+  Bot,
+  Battery,
+  Wifi,
+  Activity,
+  RefreshCw,
+  Cpu,
   Navigation
 } from "lucide-react";
 
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/admin/rovers")({
       { title: "Rover Management · BellPepper AI" },
       { name: "description", content: "Fleet overview with firmware, battery, sensors and assignment for every inspection rover." },
       { property: "og:title", content: "Rover Management · BellPepper AI" },
-      { property: "og:description", content: "Manage your inspection rover fleet." },
+      { property: "og:description", content: "Manage your inspection Rover." },
     ],
   }),
   component: RoverManagement,
@@ -32,14 +32,14 @@ function StatusPill({ status, size = "md" }: { status: string; size?: "sm" | "md
   const styles = isOnline
     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
     : isOffline
-    ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
-    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20";
+      ? "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
+      : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20";
 
   const dotColor = isOnline
     ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
     : isOffline
-    ? "bg-slate-400"
-    : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]";
+      ? "bg-slate-400"
+      : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]";
 
   const sizeClasses = size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-xs font-semibold";
 

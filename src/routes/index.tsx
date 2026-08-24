@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Bug, Droplets, Leaf, Sprout, Building2, Bot } from "lucide-react";
+import { ArrowRight, Bug, Droplets, Leaf, Sprout, Building2, Bot, Sun, CloudSun, CloudRain, CloudLightning } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -28,6 +28,7 @@ import {
 } from "@/components/app/ui-kit";
 import { alerts, fleet, houseSummary, polyhouses } from "@/lib/mock-data";
 import { drift, useTick } from "@/hooks/use-live-telemetry";
+import { useWeather } from "@/hooks/use-weather";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
@@ -37,12 +38,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Overview of every polyhouse: crop health charts, fruit production, rover fleet telemetry and live inspection map.",
+          "Overview of every polyhouse: crop health charts, fruit production, Rover telemetry and live inspection map.",
       },
       { property: "og:title", content: "Edhasfarms" },
       {
         property: "og:description",
-        content: "Overview of every polyhouse: crop health charts, fruit production, rover fleet telemetry and live inspection map.",
+        content: "Overview of every polyhouse: crop health charts, fruit production, Rover telemetry and live inspection map.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -118,6 +119,7 @@ function DashboardContent() {
     (selectedSummary.crop.healthy / healthSplit.reduce((total, segment) => total + segment.value, 0)) * 100,
   );
   const tick = useTick(5000);
+  const weather = useWeather();
   const totalPlants = drift(estate.reduce((s, e) => s + e.plants, 0), tick, 11, { pct: 0.004 });
   const totalFruits = drift(estate.reduce((s, e) => s + e.fruits, 0), tick, 12, { pct: 0.005 });
   const totalDisease = drift(estate.reduce((s, e) => s + e.disease, 0), tick, 13, { abs: 2 });
@@ -133,11 +135,46 @@ function DashboardContent() {
 
   return (
     <AppShell title="Dashboard">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <KpiCard label="Polyhouses" value={String(polyhouses.length)} hint="All monitored" tone="indigo" icon={<Building2 className="size-4" />} to="/polyhouses" linkLabel="Open polyhouses" />
         <KpiCard label="Plants" value={totalPlants.toLocaleString()} delta="↑ 4.2%" hint="inspected" tone="mint" icon={<Sprout className="size-4" />} to="/crop-intelligence" linkLabel="Open crop intelligence" />
         <KpiCard label="Fruits" value={totalFruits.toLocaleString()} delta="↑ 8.6%" hint="vs yesterday" tone="sage" icon={<Leaf className="size-4" />} to="/crop-intelligence" linkLabel="Open fruit analytics" />
         <KpiCard label="Disease" value={String(totalDisease)} hint="Needs attention" tone="peach" icon={<Bug className="size-4" />} to="/crop-intelligence" linkLabel="Open disease review" />
+        <div onClick={weather.permissionDenied ? weather.requestLocation : undefined} className={weather.permissionDenied ? "cursor-pointer" : ""}>
+          <KpiCard
+            label={weather.cityName ? weather.cityName.toUpperCase() : "LOCATION"}
+            value={
+              weather.loading
+                ? "Locating..."
+                : weather.permissionDenied
+                  ? "Allow Location"
+                  : weather.temp !== null
+                    ? `${weather.temp}°C`
+                    : "--"
+            }
+            delta={weather.condition}
+            hint={
+              weather.permissionDenied
+                ? "Click to grant GPS access"
+                : weather.loading
+                  ? "Fetching GPS & weather..."
+                  : `💧 ${weather.humidity}% · 💨 ${weather.windSpeed} km/h`
+            }
+            tone="sky"
+            icon={
+              weather.weatherCode !== null && weather.weatherCode >= 51 && weather.weatherCode <= 82 ? (
+                <CloudRain className="size-4" />
+              ) : weather.weatherCode !== null && weather.weatherCode >= 95 ? (
+                <CloudLightning className="size-4" />
+              ) : weather.weatherCode !== null && weather.weatherCode >= 1 && weather.weatherCode <= 3 ? (
+                <CloudSun className="size-4" />
+              ) : (
+                <Sun className="size-4" />
+              )
+            }
+            linkLabel={weather.permissionDenied ? "Grant location access" : "Real-time forecast"}
+          />
+        </div>
       </div>
 
       <HouseSummary id={selectedHouse.id} onSelect={setSelectedHouseId} />
@@ -226,7 +263,7 @@ function DashboardContent() {
         </Surface>
 
         <Surface className="p-4">
-          <CardTitle>Rover fleet</CardTitle>
+          <CardTitle>Rover</CardTitle>
           <div className="space-y-3">
             {fleet.map((f) => (
               <div key={f.id} className="flex items-center justify-between gap-3">
@@ -257,13 +294,12 @@ function DashboardContent() {
             {alerts.slice(0, 4).map((a) => (
               <div key={a.id} className="flex items-start gap-3">
                 <span
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${
-                    a.severity === "critical"
-                      ? "bg-critical"
-                      : a.severity === "warning"
-                        ? "bg-warning"
-                        : "bg-teal"
-                  }`}
+                  className={`mt-1.5 size-2 shrink-0 rounded-full ${a.severity === "critical"
+                    ? "bg-critical"
+                    : a.severity === "warning"
+                      ? "bg-warning"
+                      : "bg-teal"
+                    }`}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px]">{a.title}</p>
@@ -275,21 +311,9 @@ function DashboardContent() {
             ))}
           </div>
         </Surface>
-      </div>
 
-
-      {/* Compact map + adjacent rover details */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <PolyhouseMap
-          title={activeRover.polyhouse}
-          subtitle={`Live inspection · ${activeRover.id}`}
-          height="h-[220px]"
-          rover={activeRover}
-          compact
-          offline={activeRover.status === "Offline"}
-        />
-
-        <Surface className="flex flex-col gap-3 p-4">
+        {/* Rover telemetry card adjacent to Critical alerts */}
+        <Surface className="flex flex-col justify-between gap-3 p-4">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <select
               value={roverId}
@@ -337,26 +361,16 @@ function DashboardContent() {
         </Surface>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {[
-          { to: "/soil-intelligence" as const, icon: Droplets, t: "Soil Intelligence", d: "Moisture and temperature trends." },
-          { to: "/inspections" as const, icon: Bot, t: "Inspection History", d: "Every rover run with drill-down." },
-          { to: "/crop-intelligence" as const, icon: Sprout, t: "Crop Intelligence", d: "Plants, disease, fruit and growth." },
-        ].map((c) => (
-          <Link key={c.t} to={c.to}>
-            <Surface hover className="flex h-full items-center gap-3 p-4">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sage-soft text-sage">
-                <c.icon className="size-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-[14px] font-medium">{c.t}</p>
-                <p className="truncate text-[12px] text-muted-foreground">{c.d}</p>
-              </div>
-            </Surface>
-          </Link>
-        ))}
+      {/* Full-width Polyhouse Live Map */}
+      <div className="w-full">
+        <PolyhouseMap
+          title={activeRover.polyhouse}
+          subtitle={`Live inspection · ${activeRover.id}`}
+          height="h-[320px]"
+          rover={activeRover}
+          offline={activeRover.status === "Offline"}
+        />
       </div>
-
     </AppShell>
   );
 }

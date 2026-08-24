@@ -138,7 +138,7 @@ export function AppShell({ children }: { title?: string; children: ReactNode }) 
           <Menu className="size-4" />
         </button>
 
-        <main className="mx-auto max-w-[1440px] space-y-3 px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4">{children}</main>
+        <main className="mx-auto max-w-[1440px] space-y-2.5 px-3 py-3 sm:space-y-3 sm:px-4 sm:py-4">{children}</main>
       </div>
     </div>
   );

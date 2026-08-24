@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, ExternalLink, Layers, Minus, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { rover as defaultRover } from "@/lib/mock-data";
@@ -51,6 +51,49 @@ export function PolyhouseMap({
   const [showLayers, setShowLayers] = useState(false);
   const [popup, setPopup] = useState(false);
 
+  const layersButtonRef = useRef<HTMLButtonElement>(null);
+  const layersMenuRef = useRef<HTMLDivElement>(null);
+  const roverButtonRef = useRef<HTMLButtonElement>(null);
+  const roverPopupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showLayers) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        layersMenuRef.current &&
+        !layersMenuRef.current.contains(target) &&
+        layersButtonRef.current &&
+        !layersButtonRef.current.contains(target)
+      ) {
+        setShowLayers(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showLayers]);
+
+  useEffect(() => {
+    if (!popup) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        roverPopupRef.current &&
+        !roverPopupRef.current.contains(target) &&
+        roverButtonRef.current &&
+        !roverButtonRef.current.contains(target)
+      ) {
+        setPopup(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [popup]);
+
   const rows = useMemo(() => Array.from({ length: compact ? 7 : 12 }, (_, i) => i), [compact]);
 
   const copyCoords = () => {
@@ -89,6 +132,7 @@ export function PolyhouseMap({
             <Plus className="size-3.5" />
           </button>
           <button
+            ref={layersButtonRef}
             onClick={() => setShowLayers((s) => !s)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
@@ -156,6 +200,7 @@ export function PolyhouseMap({
 
             {layers.rover && (
               <button
+                ref={roverButtonRef}
                 onClick={() => setPopup((p) => !p)}
                 className={cn(
                   "absolute left-[58%] top-[41%] -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
@@ -174,7 +219,10 @@ export function PolyhouseMap({
           </div>
 
           {popup && (
-            <div className="absolute left-1/2 top-1/2 z-20 w-64 -translate-x-1/2 rounded-xl border border-border bg-popover p-4 shadow-[var(--shadow-lift)]">
+            <div
+              ref={roverPopupRef}
+              className="absolute left-1/2 top-1/2 z-20 w-64 -translate-x-1/2 rounded-xl border border-border bg-popover p-4 shadow-[var(--shadow-lift)]"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-medium">{rover.id}</span>
                 <StatusBadge tone={offline ? "offline" : "healthy"}>
@@ -221,7 +269,10 @@ export function PolyhouseMap({
           )}
 
           {showLayers && (
-            <div className="absolute right-4 top-4 z-20 w-48 rounded-xl border border-border bg-popover p-3 shadow-[var(--shadow-lift)]">
+            <div
+              ref={layersMenuRef}
+              className="absolute right-4 top-4 z-20 w-48 rounded-xl border border-border bg-popover p-3 shadow-[var(--shadow-lift)]"
+            >
               <p className="mb-2 text-[12px] font-medium text-muted-foreground">Layers</p>
               <div className="space-y-1">
                 {layerLabels.map(({ key, label }) => (

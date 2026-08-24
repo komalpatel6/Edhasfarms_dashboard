@@ -77,7 +77,6 @@ const chartTip = {
   },
 };
 
-<<<<<<< HEAD
 export function CropIntelligence() {
   const searchParams = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -160,7 +159,6 @@ export function CropIntelligence() {
 
   const [drawer, setDrawer] = useState<(typeof housePlants)[number] | null>(null);
   const canManage = currentUser.role !== "Viewer";
-=======
 const rowProduction = [
   { row: "Row 01", fruits: 340 },
   { row: "Row 02", fruits: 410 },
@@ -247,7 +245,6 @@ function CropIntelligence() {
     causes: a.causes || "High canopy humidity & poor air circulation",
     status: a.status,
   }));
->>>>>>> f5556ea352743e33053c554a172de7123da60209
 
   // Dynamic diseases detected in this polyhouse
   const baseDiseases = [
@@ -471,7 +468,6 @@ function CropIntelligence() {
       {tab === "Plants" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
-<<<<<<< HEAD
             <KpiCard
               label="Total Plants"
               value={totalPlants.toLocaleString()}
@@ -491,11 +487,9 @@ function CropIntelligence() {
               hint="Not detected by rover"
               tone="peach"
             />
-=======
             <KpiCard label="Total Plants" value={totalPlantsCount.toLocaleString()} tone="sage" />
             <KpiCard label="Inspected" value={totalPlantsCount.toLocaleString()} delta="100%" tone="mint" />
             <KpiCard label="Anomalies" value={String(apiAnomalies.length)} hint="AI Flagged" tone="peach" />
->>>>>>> f5556ea352743e33053c554a172de7123da60209
           </div>
 
           <Surface className="p-0 overflow-hidden">
@@ -542,11 +536,8 @@ function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
-<<<<<<< HEAD
                   {filteredPlants.map((p) => (
-=======
                   {plantsList.map((p) => (
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -585,15 +576,12 @@ function CropIntelligence() {
       {tab === "Disease" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
-<<<<<<< HEAD
             <KpiCard label="Healthy Plants" value={healthyPlants.toLocaleString()} tone="mint" hint="Zero infection signs" />
             <KpiCard label="Suspected" value={String(suspectedDisease)} tone="butter" hint="Requires confirmation" />
             <KpiCard label="High Priority" value={String(criticalDisease)} tone="peach" hint="Action required" />
-=======
             <KpiCard label="Healthy" value="1,192" tone="mint" />
             <KpiCard label="Suspected" value="42" tone="butter" />
             <KpiCard label="High Priority" value={String(anomaliesList.length)} tone="peach" />
->>>>>>> f5556ea352743e33053c554a172de7123da60209
           </div>
 
           <Surface className="p-0">
@@ -610,26 +598,20 @@ function CropIntelligence() {
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-<<<<<<< HEAD
                   <tr className="border-b border-border text-left text-muted-foreground bg-muted/20">
                     {["Plant ID", "Row", "Disease Detected", "AI Confidence", "Status", ""].map((h) => (
                       <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">
                         {h}
                       </th>
-=======
                   <tr className="border-b border-border text-left text-muted-foreground">
                     {["Plant", "Row", "Disease", "AI Confidence", "Probable Causes", "Status", ""].map((h) => (
                       <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-<<<<<<< HEAD
                   {houseDiseases.map((d) => (
-=======
                   {anomaliesList.map((d) => (
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
                       key={d.id || d.plant}
                       className={cn(
@@ -637,7 +619,6 @@ function CropIntelligence() {
                         d.confidence >= 90 && "bg-critical-soft/30"
                       )}
                     >
-<<<<<<< HEAD
                       <td className="px-5 py-3 font-semibold text-foreground">{d.plant}</td>
                       <td className="px-5 py-3">Row {d.row}</td>
                       <td className="px-5 py-3 font-medium text-foreground">{d.disease}</td>
@@ -646,13 +627,11 @@ function CropIntelligence() {
                           {d.confidence}%
                         </span>
                       </td>
-=======
                       <td className="px-5 py-3 font-medium">{d.plant}</td>
                       <td className="px-5 py-3">{d.row}</td>
                       <td className="px-5 py-3">{d.disease}</td>
                       <td className="px-5 py-3">{d.confidence}%</td>
                       <td className="px-5 py-3 text-muted-foreground max-w-xs truncate">{d.causes}</td>
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                       <td className="px-5 py-3">
                         <StatusBadge tone={statusTone(d.status)}>{d.status}</StatusBadge>
                       </td>
@@ -743,11 +722,8 @@ function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
-<<<<<<< HEAD
                   {housePlants.slice(0, 8).map((p) => (
-=======
                   {plantsList.slice(0, 8).map((p) => (
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -805,19 +781,16 @@ function CropIntelligence() {
           <Surface className="lg:col-span-2">
             <CardTitle>Plants Lagging In Growth · {selectedHouse.name}</CardTitle>
             <div className="grid gap-4 sm:grid-cols-3">
-<<<<<<< HEAD
               {housePlants.slice(10, 13).map((p) => (
                 <div key={p.id} className="rounded-xl border border-border/60 bg-muted/30 p-4">
                   <p className="text-[14px] font-bold text-foreground">🌱 {p.id}</p>
                   <p className="mt-1 text-[12px] text-muted-foreground">
                     {p.row} · Position {p.position}
                   </p>
-=======
               {plantsList.slice(0, 3).map((p) => (
                 <div key={p.id} className="rounded-xl bg-cream p-4">
                   <p className="text-[14px] font-medium">🌱 {p.id}</p>
                   <p className="mt-1 text-[12px] text-muted-foreground">{p.row} · Position {p.position}</p>
->>>>>>> f5556ea352743e33053c554a172de7123da60209
                   <div className="mt-3 flex items-end gap-4 text-[13px]">
                     <div>
                       <p className="text-muted-foreground text-xs">Previous</p>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sprout } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { PolyhouseMap } from "@/components/app/PolyhouseMap";
 import { CardTitle, MetricRow, StatusBadge, Surface, statusTone } from "@/components/app/ui-kit";
@@ -75,6 +75,13 @@ function PolyhouseDetail() {
           <MetricRow label="Plant spacing" value={house.plantSpacing} />
           <MetricRow label="Assigned rover" value={house.rover} />
           <MetricRow label="Status" value={<StatusBadge tone={statusTone(house.status)}>{house.status}</StatusBadge>} />
+          <Link
+            to="/crop-intelligence"
+            search={{ house: house.id }}
+            className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-emerald-700"
+          >
+            <Sprout className="size-4" /> Open Crop Intelligence
+          </Link>
         </Surface>
 
         <PolyhouseMap

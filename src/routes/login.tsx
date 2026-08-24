@@ -33,7 +33,7 @@ function Login() {
 
     setError("");
     setLoading(true);
-    localStorage.setItem("edhasfarms-authenticated", "true");
+    sessionStorage.setItem("edhasfarms-authenticated", "true");
     setTimeout(() => navigate({ to: "/" }), 400);
   };
 

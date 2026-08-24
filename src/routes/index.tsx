@@ -86,7 +86,7 @@ function Dashboard() {
   const [authorised, setAuthorised] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const signedIn = localStorage.getItem("edhasfarms-authenticated") === "true";
+    const signedIn = sessionStorage.getItem("edhasfarms-authenticated") === "true";
     setAuthorised(signedIn);
     if (!signedIn) navigate({ to: "/login", replace: true });
   }, [navigate]);

@@ -26,7 +26,7 @@ import {
   CardTitle,
   statusTone,
 } from "@/components/app/ui-kit";
-import { usePolyhouses, useRovers, useAlerts } from "@/hooks/use-api";
+import { usePolyhouses, useRovers, useAlerts, useAnomalies } from "@/hooks/use-api";
 import { useWeather } from "@/hooks/use-weather";
 import { useEffect, useState } from "react";
 
@@ -99,22 +99,22 @@ function DashboardContent() {
       ]
     : [];
 
-  const healthSplit = [
-    { name: "Healthy", value: polyhouses.length > 0 ? 90 : 0, color: "var(--leaf)" },
-    { name: "Water stress", value: polyhouses.length > 0 ? 5 : 0, color: "var(--teal)" },
-    { name: "Suspected", value: polyhouses.length > 0 ? 3 : 0, color: "var(--saffron)" },
-    { name: "Diseased", value: polyhouses.length > 0 ? 2 : 0, color: "var(--critical)" },
-  ];
-
-  const healthyPercent = polyhouses.length > 0 ? 90 : 0;
+  const { data: apiAnomalies } = useAnomalies();
   const weather = useWeather();
 
-  const [roverId, setRoverId] = useState("");
-  const activeRover = fleet.find((r) => r.id === roverId) || fleet[0];
+  const totalDisease = apiAnomalies.length > 0 ? apiAnomalies.length : apiAlerts.filter((a) => a.severity === "Critical").length;
 
   const totalPlants = polyhouses.reduce((s, p) => s + (p.grid_rows || 10) * (p.grid_bays || 10) * 10, 0);
   const totalFruits = polyhouses.reduce((s, p) => s + (p.grid_rows || 10) * (p.grid_bays || 10) * 30, 0);
-  const totalDisease = apiAlerts.filter((a) => a.severity === "Critical").length;
+
+  const healthyPercent = totalPlants > 0 ? Math.max(0, Math.round(((totalPlants - totalDisease) / totalPlants) * 100)) : 100;
+
+  const healthSplit = [
+    { name: "Healthy", value: totalPlants > 0 ? Math.max(0, totalPlants - totalDisease) : 0, color: "var(--leaf)" },
+    { name: "Water stress", value: Math.round(totalDisease * 0.2), color: "var(--teal)" },
+    { name: "Suspected", value: Math.round(totalDisease * 0.3), color: "var(--saffron)" },
+    { name: "Diseased", value: totalDisease, color: "var(--critical)" },
+  ];
 
   return (
     <AppShell title="Dashboard">

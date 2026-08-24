@@ -49,6 +49,7 @@ export interface AnomalyIncident {
   severity: "Critical" | "Warning" | "Info";
   ai_confidence: number;
   image_url?: string;
+  causes?: string;
   grid_x?: number;
   grid_y?: number;
   status: "Open" | "InReview" | "Resolved";

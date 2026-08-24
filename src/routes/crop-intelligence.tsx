@@ -131,10 +131,12 @@ function CropIntelligence() {
   });
 
   const anomaliesList = apiAnomalies.map((a) => ({
+    id: a.id,
     plant: `Grid (${a.grid_x || 1}, ${a.grid_y || 1})`,
     row: `Row ${a.grid_y || 1}`,
     disease: a.issue_type || a.title,
     confidence: Math.round((a.ai_confidence <= 1 ? a.ai_confidence * 100 : a.ai_confidence) || 90),
+    causes: a.causes || "High canopy humidity & poor air circulation",
     status: a.status,
   }));
 
@@ -211,7 +213,7 @@ function CropIntelligence() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    {["Plant", "Row", "Disease", "Confidence", "Status", ""].map((h) => (
+                    {["Plant", "Row", "Disease", "AI Confidence", "Probable Causes", "Status", ""].map((h) => (
                       <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
                     ))}
                   </tr>
@@ -219,7 +221,7 @@ function CropIntelligence() {
                 <tbody>
                   {anomaliesList.map((d) => (
                     <tr
-                      key={d.plant}
+                      key={d.id || d.plant}
                       className={cn(
                         "border-b border-border/60 last:border-0",
                         d.confidence >= 90 && "bg-critical-soft/50",
@@ -229,6 +231,7 @@ function CropIntelligence() {
                       <td className="px-5 py-3">{d.row}</td>
                       <td className="px-5 py-3">{d.disease}</td>
                       <td className="px-5 py-3">{d.confidence}%</td>
+                      <td className="px-5 py-3 text-muted-foreground max-w-xs truncate">{d.causes}</td>
                       <td className="px-5 py-3">
                         <StatusBadge tone={statusTone(d.status)}>{d.status}</StatusBadge>
                       </td>

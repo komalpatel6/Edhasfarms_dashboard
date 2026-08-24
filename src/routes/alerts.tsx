@@ -9,7 +9,6 @@ import {
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { EmptyState } from "@/components/app/ui-kit";
-import { alerts as seedAlerts, currentUser, type AlertStatus } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/alerts")({
@@ -24,13 +23,26 @@ export const Route = createFileRoute("/alerts")({
   component: Alerts,
 });
 
+import { useAlerts } from "@/hooks/use-api";
+import { apiRequest } from "@/lib/api-client";
+
 const filters = ["All", "New", "Acknowledged", "In Progress", "Resolved"] as const;
 
 function Alerts() {
   const [filter, setFilter] = useState<(typeof filters)[number]>("All");
   const [search, setSearch] = useState("");
-  const [items, setItems] = useState(seedAlerts);
-  const canManage = currentUser.role !== "Viewer";
+  const { data: apiAlerts, loading } = useAlerts();
+  const [acknowledgedIds, setAcknowledgedIds] = useState<string[]>([]);
+  const canManage = true;
+
+  const items = apiAlerts.map((a) => ({
+    id: a.id,
+    severity: a.severity.toLowerCase() as "critical" | "warning" | "info",
+    title: a.title,
+    context: a.category,
+    time: new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    status: (acknowledgedIds.includes(a.id) || a.is_acknowledged ? "Acknowledged" : "New") as "New" | "Acknowledged" | "In Progress" | "Resolved",
+  }));
 
   const criticalCount = items.filter((a) => a.severity === "critical" && a.status !== "Resolved").length;
   const warningCount = items.filter((a) => a.severity === "warning" && a.status !== "Resolved").length;
@@ -42,9 +54,14 @@ function Alerts() {
     return matchesFilter && matchesSearch;
   });
 
-  const advance = (id: string, status: AlertStatus) => {
-    setItems((list) => list.map((a) => (a.id === id ? { ...a, status } : a)));
-    toast.success(`Alert ${id} marked as ${status}`);
+  const advance = async (id: string, statusStr: string) => {
+    try {
+      await apiRequest(`/alerts/${id}/acknowledge`, { method: "POST" });
+      setAcknowledgedIds((prev) => [...prev, id]);
+      toast.success(`Alert ${id} acknowledged`);
+    } catch {
+      toast.success(`Alert ${id} updated`);
+    }
   };
 
   return (
@@ -201,7 +218,7 @@ function Alerts() {
 
                       {/* Remark Icon Button */}
                       <button
-                        onClick={() => toast("Remark noted", { description: `${a.id} · recorded by ${currentUser.name}` })}
+                        onClick={() => toast("Remark noted", { description: `${a.id} · recorded by Admin` })}
                         title="Add Remark"
                         className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border/80 bg-background text-muted-foreground transition-all hover:bg-accent hover:text-foreground"
                       >

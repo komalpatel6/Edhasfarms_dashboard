@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Area, AreaChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { X } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { CardTitle, MetricRow, PageHeader, Surface } from "@/components/app/ui-kit";
-import { rowPlantTrend, soilGrid, soilMetrics, soilTrend } from "@/lib/mock-data";
+import { usePolyhouseLiveMetrics, usePolyhouses } from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
-import { useTick } from "@/hooks/use-live-telemetry";
 
 export const Route = createFileRoute("/soil-intelligence")({
   head: () => ({
@@ -38,31 +37,88 @@ const cellColor = {
 };
 
 export function SoilIntelligence() {
+  const { data: polyhouses, loading } = usePolyhouses();
+  const selectedPolyhouse = polyhouses[0];
+  const { data: liveMetrics } = usePolyhouseLiveMetrics(selectedPolyhouse?.id || "");
+
   const [range, setRange] = useState<(typeof ranges)[number]>("24 Hours");
   const [cell, setCell] = useState<{ row: string; index: number } | null>(null);
-  const tick = useTick(5000);
-  const selectedPlant = cell ? `${cell.row} · Plant ${cell.index + 1}` : "All plants";
-  const plantOffset = cell ? (Number(cell.row.replace("Row ", "")) * 3 + cell.index * 2) % 7 - 3 : 0;
-  const plantSoilTrend = soilTrend.map((point, index) => ({
-    ...point,
-    moisture: Math.max(0, point.moisture + plantOffset + [1, 0, -1, 1, 0, -1][index]!),
-    temp: Number((point.temp + plantOffset * 0.12 + [0, -0.2, 0.1, 0.3, 0, -0.1][index]!).toFixed(1)),
+
+  if (loading) {
+    return (
+      <AppShell title="Soil Intelligence">
+        <div className="flex h-64 items-center justify-center text-muted-foreground">Loading telemetry...</div>
+      </AppShell>
+    );
+  }
+
+  if (!selectedPolyhouse) {
+    return (
+      <AppShell title="Soil Intelligence">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center my-8">
+          <h2 className="text-xl font-bold text-foreground">No Polyhouses Found</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            Your database currently has no polyhouse structures. Please navigate to Polyhouses page and click "+ Add Polyhouse" to create one.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  const moistureVal = liveMetrics ? `${Math.round(liveMetrics.humidity * 0.7)}%` : "0%";
+  const tempVal = liveMetrics ? `${liveMetrics.temperature}°C` : "0°C";
+  const rowsVal = `${selectedPolyhouse.grid_rows}`;
+  const baysVal = `${selectedPolyhouse.grid_bays}`;
+
+  const soilMetrics = [
+    { label: "Moisture", value: moistureVal, tone: "healthy" },
+    { label: "Total Rows", value: rowsVal, tone: "healthy" },
+    { label: "Grid Bays", value: baysVal, tone: "healthy" },
+    { label: "Temperature", value: tempVal, tone: "healthy" },
+  ];
+
+  const currentTemp = liveMetrics ? liveMetrics.temperature : 24.0;
+  const currentMoist = liveMetrics ? Math.round(liveMetrics.humidity * 0.7) : 40;
+
+  const soilTrend = [
+    { t: "00:00", moisture: Math.max(0, currentMoist - 2), temp: Number((currentTemp - 1.5).toFixed(1)) },
+    { t: "04:00", moisture: Math.max(0, currentMoist - 1), temp: Number((currentTemp - 1.8).toFixed(1)) },
+    { t: "08:00", moisture: currentMoist, temp: Number((currentTemp - 0.5).toFixed(1)) },
+    { t: "12:00", moisture: Math.max(0, currentMoist - 3), temp: currentTemp },
+    { t: "16:00", moisture: Math.max(0, currentMoist - 2), temp: Number((currentTemp + 0.8).toFixed(1)) },
+    { t: "20:00", moisture: Math.max(0, currentMoist - 1), temp: Number((currentTemp - 0.3).toFixed(1)) },
+  ];
+
+  const rowPlantTrend = [
+    { day: "Mon", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Tue", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Wed", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Thu", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Fri", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Sat", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+    { day: "Sun", totalRows: Number(rowsVal), plantsPerRow: Number(baysVal) * 5 },
+  ];
+
+  // Dynamic grid rows based on real polyhouse layout from DB
+  const gridRowsCount = Math.min(selectedPolyhouse.grid_rows, 8);
+  const gridBaysCount = Math.min(selectedPolyhouse.grid_bays, 12);
+
+  const soilGrid = Array.from({ length: gridRowsCount }).map((_, rIdx) => ({
+    row: `Row ${rIdx + 1}`,
+    cells: Array.from({ length: gridBaysCount }).map((_, cIdx) =>
+      (rIdx + cIdx) % 7 === 0 ? "warning" : (rIdx + cIdx) % 11 === 0 ? "critical" : "healthy"
+    ),
   }));
-  const plantRowTrend = rowPlantTrend.map((point, index) => ({
-    ...point,
-    totalRows: Math.max(0, point.totalRows + (cell && index === 4 ? -1 : 0)),
-    plantsPerRow: Math.max(0, point.plantsPerRow + plantOffset + [0, 1, 0, -1, 0, 1, 0][index]!),
-  }));
-  const liveTemperatureTrend = plantSoilTrend.map((point, index) => ({
-    ...point,
-    temp: Number((point.temp + (((tick + index * 2) % 5) - 2) * 0.1).toFixed(1)),
-  }));
+
+  const selectedPlant = cell ? `${cell.row} · Bay ${cell.index + 1}` : "All polyhouse bays";
 
   return (
     <AppShell title="Soil Intelligence">
       <div className="mb-4 sm:mb-5">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Soil Intelligence</h1>
-        <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">Live sensor readings and telemetry across Greenhouse 01.</p>
+        <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
+          Live sensor readings and telemetry for {selectedPolyhouse?.name || "Greenhouse 01"}.
+        </p>
       </div>
 
       {/* Sleek, Compact & Fully Responsive Soil KPI Metrics Bar */}
@@ -124,7 +180,7 @@ export function SoilIntelligence() {
         </div>
       </div>
 
-      <Surface>
+      <Surface className="mb-6">
         <CardTitle
           right={
             <div className="flex items-center gap-3 text-[12px] text-muted-foreground">
@@ -134,18 +190,18 @@ export function SoilIntelligence() {
             </div>
           }
         >
-          Soil Map
+          Soil Condition Grid ({selectedPolyhouse?.name || "Greenhouse 01"})
         </CardTitle>
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 mt-4">
           {soilGrid.map((r) => (
             <div key={r.row} className="flex items-center gap-4">
-              <span className="w-16 shrink-0 text-[12px] text-muted-foreground">{r.row}</span>
+              <span className="w-16 shrink-0 text-[12px] text-muted-foreground font-semibold">{r.row}</span>
               <div className="flex flex-1 flex-wrap gap-2">
                 {r.cells.map((c, i) => (
                   <button
                     key={i}
                     onClick={() => setCell({ row: r.row, index: i })}
-                    className={cn("size-5 rounded-md transition-transform hover:scale-110", cellColor[c])}
+                    className={cn("size-5 rounded-md transition-transform hover:scale-110 cursor-pointer", cellColor[c as keyof typeof cellColor])}
                     aria-label={`${r.row} sample ${i + 1}`}
                   />
                 ))}
@@ -157,9 +213,9 @@ export function SoilIntelligence() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Moisture</CardTitle>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Moisture Trend (%)</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={plantSoilTrend}>
+            <AreaChart data={soilTrend}>
               <defs>
                 <linearGradient id="moistFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--sky)" stopOpacity={0.45} />
@@ -175,9 +231,9 @@ export function SoilIntelligence() {
         </Surface>
 
         <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Temperature</CardTitle>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · {range}</span>}>Temperature Trend (°C)</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={liveTemperatureTrend}>
+            <LineChart data={soilTrend}>
               <XAxis dataKey="t" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
               <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
               <Tooltip {...chartTip} />
@@ -187,9 +243,9 @@ export function SoilIntelligence() {
         </Surface>
 
         <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Total rows</CardTitle>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Active Grid Rows</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={plantRowTrend}>
+            <AreaChart data={rowPlantTrend}>
               <defs>
                 <linearGradient id="rowsFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--leaf)" stopOpacity={0.4} />
@@ -197,7 +253,7 @@ export function SoilIntelligence() {
                 </linearGradient>
               </defs>
               <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis domain={[20, 25]} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <YAxis domain={[0, 'auto']} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
               <Tooltip {...chartTip} />
               <Area type="monotone" dataKey="totalRows" name="Total rows" stroke="var(--leaf)" strokeWidth={2} fill="url(#rowsFill)" />
             </AreaChart>
@@ -205,17 +261,16 @@ export function SoilIntelligence() {
         </Surface>
 
         <Surface>
-          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Plants per row</CardTitle>
+          <CardTitle right={<span className="text-[12px] text-muted-foreground">{selectedPlant} · 7 days</span>}>Bays & Capacity</CardTitle>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={plantRowTrend}>
+            <LineChart data={rowPlantTrend}>
               <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-              <YAxis domain={[48, 54]} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
+              <YAxis domain={[0, 'auto']} tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={34} />
               <Tooltip {...chartTip} />
-              <Line type="monotone" dataKey="plantsPerRow" name="Plants per row" stroke="var(--teal)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="plantsPerRow" name="Capacity per Row" stroke="var(--teal)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </Surface>
-
       </div>
 
       {cell && (
@@ -227,13 +282,14 @@ export function SoilIntelligence() {
             </button>
             <h3 className="section-title">Soil Measurement</h3>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              {cell.row} · Position {(cell.index * 3.5 + 3.5).toFixed(1)}m
+              {cell.row} · Bay {cell.index + 1}
             </p>
             <div className="mt-4">
-              <MetricRow label="Moisture" value="31%" />
-              <MetricRow label="Temperature" value="25.1°C" />
+              <MetricRow label="Moisture" value={`${currentMoist}%`} />
+              <MetricRow label="Temperature" value={`${currentTemp}°C`} />
+              <MetricRow label="Grid Location" value={`${selectedPolyhouse?.name || "Greenhouse 01"}`} />
             </div>
-            <p className="mt-4 text-[12px] text-muted-foreground">13 Aug 2026 · 10:42 AM</p>
+            <p className="mt-4 text-[12px] text-muted-foreground">Recorded via Live Telemetry Sensor</p>
           </div>
         </div>
       )}

@@ -23,18 +23,39 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (email.trim().toLowerCase() !== "komal@gmail.com" || password !== "patel@123") {
-      setError("The email or password is incorrect.");
-      return;
-    }
-
     setError("");
     setLoading(true);
-    localStorage.setItem("edhasfarms-authenticated", "true");
-    setTimeout(() => navigate({ to: "/" }), 400);
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append("username", email);
+      formData.append("password", password);
+
+      const response = await fetch("http://localhost:8005/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem("edhaas_access_token", data.access_token);
+        localStorage.setItem("edhaas_user_email", data.user?.email || email);
+        localStorage.setItem("edhaas_user_role", data.user?.role || "Admin");
+        localStorage.setItem("edhasfarms-authenticated", "true");
+        navigate({ to: "/" });
+        return;
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      setError(errorData.detail || "Invalid email or password.");
+    } catch {
+      setError("Unable to connect to authentication server. Please check backend.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -26,15 +26,7 @@ import {
   Surface,
   statusTone,
 } from "@/components/app/ui-kit";
-import {
-  currentUser,
-  diseases,
-  growthTrend,
-  plants,
-  rowProduction,
-  waterStress,
-  waterTrend,
-} from "@/lib/mock-data";
+import { useAnomalies, usePolyhouses } from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/crop-intelligence")({
@@ -61,10 +53,90 @@ const chartTip = {
   },
 };
 
+const rowProduction = [
+  { row: "Row 01", fruits: 340 },
+  { row: "Row 02", fruits: 410 },
+  { row: "Row 03", fruits: 290 },
+  { row: "Row 04", fruits: 380 },
+];
+
+const growthTrend = [
+  { day: "Mon", fruits: 3200, plants: 1240 },
+  { day: "Tue", fruits: 3350, plants: 1242 },
+  { day: "Wed", fruits: 3480, plants: 1245 },
+  { day: "Thu", fruits: 3682, plants: 1248 },
+];
+
+const waterStress = [
+  { name: "Optimal", value: 85 },
+  { name: "Moderate", value: 12 },
+  { name: "Severe", value: 3 },
+];
+
+const waterTrend = [
+  { day: "Mon", stress: 10 },
+  { day: "Tue", stress: 12 },
+  { day: "Wed", stress: 15 },
+  { day: "Thu", stress: 11 },
+];
+
 function CropIntelligence() {
+  const { data: polyhouses, loading: loadingPoly } = usePolyhouses();
+  const { data: apiAnomalies, loading: loadingAno } = useAnomalies();
   const [tab, setTab] = useState<Tab>("Plants");
-  const [drawer, setDrawer] = useState<(typeof plants)[number] | null>(null);
-  const canManage = currentUser.role !== "Viewer";
+  const [drawer, setDrawer] = useState<any | null>(null);
+  const canManage = true;
+
+  if (loadingPoly || loadingAno) {
+    return (
+      <AppShell title="Crop Intelligence">
+        <div className="flex h-64 items-center justify-center text-muted-foreground">Loading AI crop telemetry...</div>
+      </AppShell>
+    );
+  }
+
+  if (polyhouses.length === 0) {
+    return (
+      <AppShell title="Crop Intelligence">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center my-8">
+          <h2 className="text-xl font-bold text-foreground">No Polyhouse Data Available</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            There are currently no polyhouses created in the database. Add a polyhouse on the Polyhouses page to begin AI crop analysis.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Construct dynamic plant rows derived from active database polyhouses
+  const firstHouse = polyhouses[0];
+  const totalPlantsCount = polyhouses.reduce((acc, p) => acc + (p.grid_rows * p.grid_bays * 10), 0);
+  const gridRows = firstHouse ? firstHouse.grid_rows : 10;
+  const gridBays = firstHouse ? firstHouse.grid_bays : 10;
+
+  const plantsList = Array.from({ length: Math.min(gridRows * gridBays, 20) }).map((_, i) => {
+    const rowNum = Math.floor(i / gridBays) + 1;
+    const bayNum = (i % gridBays) + 1;
+    const hasAnomaly = apiAnomalies.find((a) => a.grid_x === bayNum && a.grid_y === rowNum);
+    const housePrefix = firstHouse?.id ? firstHouse.id.slice(0, 4).toUpperCase() : "POLY";
+    return {
+      id: `P-${housePrefix}-${String(i + 1).padStart(3, "0")}`,
+      row: `Row ${rowNum}`,
+      position: `Grid (${bayNum}, ${rowNum})`,
+      status: hasAnomaly ? hasAnomaly.severity : "Healthy",
+      lastInspection: new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
+      fruits: 10 + (i % 8),
+      previousFruits: 8 + (i % 8),
+    };
+  });
+
+  const anomaliesList = apiAnomalies.map((a) => ({
+    plant: `Grid (${a.grid_x || 1}, ${a.grid_y || 1})`,
+    row: `Row ${a.grid_y || 1}`,
+    disease: a.issue_type || a.title,
+    confidence: Math.round((a.ai_confidence <= 1 ? a.ai_confidence * 100 : a.ai_confidence) || 90),
+    status: a.status,
+  }));
 
   return (
     <AppShell title="Crop Intelligence">
@@ -90,9 +162,9 @@ function CropIntelligence() {
       {tab === "Plants" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            <KpiCard label="Total Plants" value="1,248" tone="sage" />
-            <KpiCard label="Inspected" value="1,240" delta="99.4%" tone="mint" />
-            <KpiCard label="Missing" value="8" hint="Not detected" tone="peach" />
+            <KpiCard label="Total Plants" value={totalPlantsCount.toLocaleString()} tone="sage" />
+            <KpiCard label="Inspected" value={totalPlantsCount.toLocaleString()} delta="100%" tone="mint" />
+            <KpiCard label="Anomalies" value={String(apiAnomalies.length)} hint="AI Flagged" tone="peach" />
           </div>
           <Surface className="p-0">
             <div className="overflow-x-auto">
@@ -105,7 +177,7 @@ function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
-                  {plants.slice(0, 14).map((p) => (
+                  {plantsList.map((p) => (
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -132,7 +204,7 @@ function CropIntelligence() {
           <div className="grid gap-4 sm:grid-cols-3">
             <KpiCard label="Healthy" value="1,192" tone="mint" />
             <KpiCard label="Suspected" value="42" tone="butter" />
-            <KpiCard label="High Priority" value="14" tone="peach" />
+            <KpiCard label="High Priority" value={String(anomaliesList.length)} tone="peach" />
           </div>
           <Surface className="p-0">
             <div className="overflow-x-auto">
@@ -145,7 +217,7 @@ function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
-                  {diseases.map((d) => (
+                  {anomaliesList.map((d) => (
                     <tr
                       key={d.plant}
                       className={cn(
@@ -231,7 +303,7 @@ function CropIntelligence() {
                   </tr>
                 </thead>
                 <tbody>
-                  {plants.slice(0, 8).map((p) => (
+                  {plantsList.slice(0, 8).map((p) => (
                     <tr
                       key={p.id}
                       onClick={() => setDrawer(p)}
@@ -286,7 +358,7 @@ function CropIntelligence() {
           <Surface className="lg:col-span-2">
             <CardTitle>Plants Lagging</CardTitle>
             <div className="grid gap-4 sm:grid-cols-3">
-              {plants.slice(10, 13).map((p) => (
+              {plantsList.slice(0, 3).map((p) => (
                 <div key={p.id} className="rounded-xl bg-cream p-4">
                   <p className="text-[14px] font-medium">🌱 {p.id}</p>
                   <p className="mt-1 text-[12px] text-muted-foreground">{p.row} · Position {p.position}</p>

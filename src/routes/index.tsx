@@ -90,6 +90,8 @@ function DashboardContent() {
 
   const [selectedHouseId, setSelectedHouseId] = useState("");
   const selectedHouse = polyhouses.find((h) => h.id === selectedHouseId) || polyhouses[0];
+  const [roverId, setRoverId] = useState("");
+  const activeRover = fleet.find((f) => f.id === roverId) || fleet[0];
 
   const housePlantCount = selectedHouse ? (selectedHouse.grid_rows || 10) * (selectedHouse.grid_bays || 10) * 10 : 0;
   const selectedGrowthTrend = selectedHouse

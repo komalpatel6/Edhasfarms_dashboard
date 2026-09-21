@@ -67,9 +67,9 @@ function SettingsPage() {
               </div>
               <div>
                 <label className="text-[13px] text-muted-foreground">Email</label>
-                <input defaultValue="admin@edhaas.com" className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
+                <input defaultValue={localStorage.getItem("edhaas_user_email") || ""} placeholder="user@domain.com" className="mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-[14px] outline-none focus:border-sage" />
               </div>
-              <MetricRow label="Role" value="Admin" />
+              <MetricRow label="Role" value={localStorage.getItem("edhaas_user_role") || "User"} />
               <button
                 onClick={() => toast.success("Profile saved")}
                 className="rounded-xl bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90"

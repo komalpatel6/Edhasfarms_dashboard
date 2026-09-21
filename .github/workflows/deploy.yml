@@ -1,0 +1,48 @@
+name: CI/CD - Frontend (Dashboard)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GCP_PROJECT_ID: edhasfarms-prod
+  GCP_REGION: us-central1
+  FRONTEND_GCS_BUCKET: gs://edhasfarms-dashboard-bucket
+  CDN_URL_MAP_NAME: edhasfarms-cdn-map
+
+jobs:
+  deploy-frontend:
+    name: Build & Deploy Frontend to Cloud Storage & CDN
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies & Build Frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Authenticate to GCP
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        if: github.ref == 'refs/heads/main'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload Build Assets to Google Cloud Storage & Invalidate CDN
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gsutil -m rsync -r -d .output/public ${{ env.FRONTEND_GCS_BUCKET }}
+          gcloud compute url-maps invalidate-cdn-cache ${{ env.CDN_URL_MAP_NAME }} --path "/*" --async

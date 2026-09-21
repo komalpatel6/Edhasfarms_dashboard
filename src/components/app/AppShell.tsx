@@ -69,10 +69,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
 
   useEffect(() => {
-    const email = localStorage.getItem("edhaas_user_email") || "edhas@test.com";
-    const role = localStorage.getItem("edhaas_user_role") || "Admin";
-    const name = email ? email.split("@")[0] || "edhas" : "edhas";
-    setUser({ name: name.charAt(0).toUpperCase() + name.slice(1), role });
+    const email = localStorage.getItem("edhaas_user_email") || "";
+    const role = localStorage.getItem("edhaas_user_role") || "Operator";
+    const name = email ? email.split("@")[0] : "User";
+    setUser({ name: name ? name.charAt(0).toUpperCase() + name.slice(1) : "User", role });
   }, []);
 
   const userName = user?.name || "Edhaas";
@@ -83,6 +83,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     localStorage.removeItem("edhaas_user_email");
     localStorage.removeItem("edhaas_user_role");
     localStorage.removeItem("edhasfarms-authenticated");
+    sessionStorage.removeItem("edhasfarms-authenticated");
     window.location.href = "/login";
   };
 

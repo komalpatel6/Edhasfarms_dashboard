@@ -27,15 +27,15 @@ function Login() {
     event.preventDefault();
     setError("");
     setLoading(true);
-    sessionStorage.setItem("edhasfarms-authenticated", "true");
-    setTimeout(() => navigate({ to: "/" }), 400);
+
+    const apiBaseUrl = import.meta.env["VITE_API_URL"] || "http://localhost:8000/api/v1";
 
     try {
       const formData = new URLSearchParams();
       formData.append("username", email);
       formData.append("password", password);
 
-      const response = await fetch("http://localhost:8005/api/v1/auth/login", {
+      const response = await fetch(`${apiBaseUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData,
@@ -47,6 +47,7 @@ function Login() {
         localStorage.setItem("edhaas_user_email", data.user?.email || email);
         localStorage.setItem("edhaas_user_role", data.user?.role || "Admin");
         localStorage.setItem("edhasfarms-authenticated", "true");
+        sessionStorage.setItem("edhasfarms-authenticated", "true");
         navigate({ to: "/" });
         return;
       }
@@ -54,7 +55,7 @@ function Login() {
       const errorData = await response.json().catch(() => ({}));
       setError(errorData.detail || "Invalid email or password.");
     } catch {
-      setError("Unable to connect to authentication server. Please check backend.");
+      setError("Unable to connect to backend server at http://localhost:8000. Please ensure the backend is running.");
     } finally {
       setLoading(false);
     }

@@ -45,7 +45,6 @@ import {
 import {
   useAnomalies,
   usePolyhouses,
-  useCropModelInfo,
   analyzeCropImageFile,
   CropAnalysisResult,
   AnomalyIncident
@@ -106,7 +105,6 @@ const waterTrend = [
 export default function CropIntelligence() {
   const { data: polyhouses, loading: loadingPoly } = usePolyhouses();
   const { data: apiAnomalies, loading: loadingAno } = useAnomalies();
-  const { data: modelInfo, loading: loadingModel } = useCropModelInfo();
 
   const [tab, setTab] = useState<Tab>("AI Diagnosis");
   const [drawer, setDrawer] = useState<any | null>(null);
@@ -218,31 +216,6 @@ export default function CropIntelligence() {
         title="Crop Intelligence & AI Vision"
         subtitle="Connected to PyTorch ResNet50 Cloud Run Model · Real-time Disease Diagnosis & IPM Protocol"
       />
-
-      {/* Model Health Ribbon */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/60 px-4 py-3 text-xs backdrop-blur">
-        <div className="flex items-center gap-2.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="font-medium text-foreground">
-            {modelInfo?.architecture || "ResNet50"} Capsicum Disease Classifier
-          </span>
-          <span className="rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
-            {modelInfo?.framework || "PyTorch"} · 12 Classes · 224x224
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-            <CheckCircle2 className="size-3.5" /> Cloud Run Active
-          </span>
-          <span className="hidden sm:inline">|</span>
-          <span className="hidden sm:inline text-[11px] font-mono truncate max-w-xs">
-            https://crop-detection-api-vikzmhbwja-el.a.run.app
-          </span>
-        </div>
-      </div>
 
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-1 border-b border-border mb-6">
@@ -364,41 +337,6 @@ export default function CropIntelligence() {
                       </>
                     )}
                   </button>
-                </div>
-              </Surface>
-
-              {/* Supported Classes Reference Card */}
-              <Surface className="p-4">
-                <CardTitle className="text-xs font-semibold uppercase text-muted-foreground mb-3">
-                  Supported Model Classes (12 Conditions)
-                </CardTitle>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    "Anthracnose",
-                    "Bacterial Spot",
-                    "Blossom-End Rot",
-                    "Powdery Mildew",
-                    "Virus",
-                    "Down Leaf Aphid",
-                    "Fruit Thrips",
-                    "Upperleaf Thrips",
-                    "Larva",
-                    "Snail",
-                    "Magnesium",
-                    "Healthy",
-                  ].map((cls) => (
-                    <span
-                      key={cls}
-                      className={cn(
-                        "rounded-lg px-2.5 py-1 text-[11px] font-medium border border-border/60",
-                        cls === "Healthy"
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                          : "bg-muted/60 text-muted-foreground"
-                      )}
-                    >
-                      {cls}
-                    </span>
-                  ))}
                 </div>
               </Surface>
             </div>

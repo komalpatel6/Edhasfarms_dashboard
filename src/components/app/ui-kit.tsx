@@ -45,9 +45,17 @@ export function Surface({
   );
 }
 
-export function CardTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
+export function CardTitle({
+  children,
+  right,
+  className,
+}: {
+  children: ReactNode;
+  right?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
+    <div className={cn("mb-4 flex items-center justify-between gap-3", className)}>
       <h3 className="text-[15px] font-medium text-foreground">{children}</h3>
       {right}
     </div>

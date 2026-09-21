@@ -294,4 +294,121 @@ export function useRoverLiveTelemetry(roverId: string | null) {
   return { data, loading, refetch: fetchTelemetry };
 }
 
+// AI Vision / Crop Disease Detection Interfaces & Helpers
+export interface ClassInformation {
+  type?: string;
+  category?: string;
+  common_name?: string;
+  scientific_cause?: string;
+  causal_agent?: string;
+  affected_parts?: string[];
+  symptoms?: string[];
+  favorable_conditions?: string[];
+  cause_and_biology?: string[];
+  agricultural_impact?: string[];
+  diagnostic_notes?: string[];
+  management?: string[];
+  ipm?: string[];
+  precautions?: string[];
+}
+
+export interface TopPrediction {
+  rank: number;
+  class_name: string;
+  class_index: number;
+  confidence_percent: number;
+  class_information?: ClassInformation;
+}
+
+export interface CropAnalysisResult {
+  success: boolean;
+  predicted_class: string;
+  formatted_title: string;
+  issue_type: string;
+  severity: "Critical" | "Warning" | "Info";
+  confidence_percent: number;
+  confidence_level: string;
+  is_healthy: boolean;
+  summary_causes: string;
+  management_recommendations: string[];
+  symptoms: string[];
+  class_information?: ClassInformation;
+  top_5_predictions: TopPrediction[];
+  incident_id?: string;
+  image_url?: string;
+  polyhouse_id?: string;
+  rover_id?: string;
+  grid_x?: number;
+  grid_y?: number;
+  detected_at: string;
+}
+
+export interface CropModelInfo {
+  status: string;
+  architecture: string;
+  classifier_architecture?: string;
+  framework: string;
+  num_classes: number;
+  classes: string[];
+  input_size?: string;
+  device?: string;
+  api_endpoint: string;
+}
+
+export async function analyzeCropImageFile(
+  file: File,
+  params: {
+    polyhouse_id?: string;
+    rover_id?: string;
+    grid_x?: number;
+    grid_y?: number;
+    auto_save_incident?: boolean;
+  } = {}
+): Promise<CropAnalysisResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.polyhouse_id) formData.append("polyhouse_id", params.polyhouse_id);
+  if (params.rover_id) formData.append("rover_id", params.rover_id);
+  if (params.grid_x !== undefined) formData.append("grid_x", String(params.grid_x));
+  if (params.grid_y !== undefined) formData.append("grid_y", String(params.grid_y));
+  formData.append("auto_save_incident", String(params.auto_save_incident ?? true));
+
+  return await apiRequest<CropAnalysisResult>("/crop-intelligence/analyze-image", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function analyzeCropImageJson(payload: {
+  image_b64?: string;
+  image_url?: string;
+  polyhouse_id?: string;
+  rover_id?: string;
+  grid_x?: number;
+  grid_y?: number;
+  auto_save_incident?: boolean;
+}): Promise<CropAnalysisResult> {
+  return await apiRequest<CropAnalysisResult>("/crop-intelligence/analyze-json", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function useCropModelInfo() {
+  const [data, setData] = useState<CropModelInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiRequest<CropModelInfo>("/crop-intelligence/model-info")
+      .then((res) => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  return { data, loading };
+}
+
+
 

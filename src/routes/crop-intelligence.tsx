@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Area,
   AreaChart,
@@ -8,13 +8,29 @@ import {
   LineChart,
   Pie,
   PieChart,
+  BarChart,
+  Bar,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import { X } from "lucide-react";
+import {
+  X,
+  UploadCloud,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  Activity,
+  RefreshCw,
+  Leaf,
+  ShieldAlert,
+  HelpCircle,
+  Database,
+  ArrowUpRight
+} from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import {
   CardTitle,
@@ -26,22 +42,29 @@ import {
   Surface,
   statusTone,
 } from "@/components/app/ui-kit";
-import { useAnomalies, usePolyhouses } from "@/hooks/use-api";
+import {
+  useAnomalies,
+  usePolyhouses,
+  useCropModelInfo,
+  analyzeCropImageFile,
+  CropAnalysisResult,
+  AnomalyIncident
+} from "@/hooks/use-api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/crop-intelligence")({
   head: () => ({
     meta: [
       { title: "Crop Intelligence · BellPepper AI" },
-      { name: "description", content: "AI plant detection, disease review, fruit counting, growth monitoring and water stress in one place." },
+      { name: "description", content: "AI plant disease detection, ResNet50 condition classification, fruit counting, growth monitoring and treatment plans." },
       { property: "og:title", content: "Crop Intelligence · BellPepper AI" },
-      { property: "og:description", content: "Plants, disease, fruits, growth and water stress insights." },
+      { property: "og:description", content: "Live PyTorch ResNet50 plant disease classification, fruit counting, and IPM treatment protocols." },
     ],
   }),
   component: CropIntelligence,
 });
 
-const tabs = ["Plants", "Disease", "Fruits", "Growth", "Water Stress"] as const;
+const tabs = ["AI Diagnosis", "Disease Registry", "Plants Grid", "Fruit Yield", "Water Stress"] as const;
 type Tab = (typeof tabs)[number];
 
 const chartTip = {
@@ -80,37 +103,38 @@ const waterTrend = [
   { day: "Thu", stress: 11 },
 ];
 
-function CropIntelligence() {
+export default function CropIntelligence() {
   const { data: polyhouses, loading: loadingPoly } = usePolyhouses();
   const { data: apiAnomalies, loading: loadingAno } = useAnomalies();
-  const [tab, setTab] = useState<Tab>("Plants");
+  const { data: modelInfo, loading: loadingModel } = useCropModelInfo();
+
+  const [tab, setTab] = useState<Tab>("AI Diagnosis");
   const [drawer, setDrawer] = useState<any | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<AnomalyIncident | null>(null);
+
+  // Live Image Analysis State
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<CropAnalysisResult | null>(null);
+  const [selectedPolyhouseId, setSelectedPolyhouseId] = useState<string>("poly-01");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const canManage = true;
 
   if (loadingPoly || loadingAno) {
     return (
       <AppShell title="Crop Intelligence">
-        <div className="flex h-64 items-center justify-center text-muted-foreground">Loading AI crop telemetry...</div>
-      </AppShell>
-    );
-  }
-
-  if (polyhouses.length === 0) {
-    return (
-      <AppShell title="Crop Intelligence">
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center my-8">
-          <h2 className="text-xl font-bold text-foreground">No Polyhouse Data Available</h2>
-          <p className="mt-2 text-sm text-muted-foreground max-w-md">
-            There are currently no polyhouses created in the database. Add a polyhouse on the Polyhouses page to begin AI crop analysis.
-          </p>
+        <div className="flex h-64 items-center justify-center text-muted-foreground">
+          <RefreshCw className="size-5 animate-spin mr-2 text-sage" />
+          Connecting to AI Crop Vision & database...
         </div>
       </AppShell>
     );
   }
 
-  // Construct dynamic plant rows derived from active database polyhouses
   const firstHouse = polyhouses[0];
-  const totalPlantsCount = polyhouses.reduce((acc, p) => acc + (p.grid_rows * p.grid_bays * 10), 0);
+  const totalPlantsCount = polyhouses.reduce((acc, p) => acc + (p.grid_rows * p.grid_bays * 10), 0) || 1200;
   const gridRows = firstHouse ? firstHouse.grid_rows : 10;
   const gridBays = firstHouse ? firstHouse.grid_bays : 10;
 
@@ -127,6 +151,7 @@ function CropIntelligence() {
       lastInspection: new Date().toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }),
       fruits: 10 + (i % 8),
       previousFruits: 8 + (i % 8),
+      anomalyData: hasAnomaly
     };
   });
 
@@ -134,25 +159,101 @@ function CropIntelligence() {
     id: a.id,
     plant: `Grid (${a.grid_x || 1}, ${a.grid_y || 1})`,
     row: `Row ${a.grid_y || 1}`,
-    disease: a.issue_type || a.title,
+    disease: a.title || a.issue_type,
+    category: a.issue_type,
     confidence: Math.round((a.ai_confidence <= 1 ? a.ai_confidence * 100 : a.ai_confidence) || 90),
-    causes: a.causes || "High canopy humidity & poor air circulation",
+    causes: a.causes || "Fungal pathogen or environmental microclimate stress",
+    severity: a.severity,
     status: a.status,
+    detected_at: a.detected_at,
+    image_url: a.image_url,
+    raw: a
   }));
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+      setAnalysisResult(null);
+    }
+  };
+
+  const handleRunAnalysis = async () => {
+    if (!uploadedImage) {
+      toast.error("Please select or drop an image first.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeCropImageFile(uploadedImage, {
+        polyhouse_id: selectedPolyhouseId || firstHouse?.id || "poly-01",
+        auto_save_incident: true,
+      });
+
+      setAnalysisResult(result);
+
+      if (result.is_healthy) {
+        toast.success("AI Result: Plant foliage is Healthy!", {
+          description: `Confidence: ${result.confidence_percent}% (${result.confidence_level})`
+        });
+      } else {
+        toast.warning(`AI Detection: ${result.formatted_title}`, {
+          description: `Saved to database · Incident ${result.incident_id || "logged"}`
+        });
+      }
+    } catch (err: any) {
+      toast.error("Analysis Failed", {
+        description: err?.message || "Could not reach Cloud Run AI model"
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   return (
     <AppShell title="Crop Intelligence">
-      <PageHeader title="Crop Intelligence" subtitle="AI inspection results for Greenhouse 01 · 13 August 2026" />
+      <PageHeader
+        title="Crop Intelligence & AI Vision"
+        subtitle="Connected to PyTorch ResNet50 Cloud Run Model · Real-time Disease Diagnosis & IPM Protocol"
+      />
 
-      <div className="flex flex-wrap gap-1 border-b border-border">
+      {/* Model Health Ribbon */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/60 px-4 py-3 text-xs backdrop-blur">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="font-medium text-foreground">
+            {modelInfo?.architecture || "ResNet50"} Capsicum Disease Classifier
+          </span>
+          <span className="rounded bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+            {modelInfo?.framework || "PyTorch"} · 12 Classes · 224x224
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 className="size-3.5" /> Cloud Run Active
+          </span>
+          <span className="hidden sm:inline">|</span>
+          <span className="hidden sm:inline text-[11px] font-mono truncate max-w-xs">
+            https://crop-detection-api-vikzmhbwja-el.a.run.app
+          </span>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex flex-wrap gap-1 border-b border-border mb-6">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "-mb-px border-b-2 px-4 py-2.5 text-[14px] transition-colors",
+              "-mb-px border-b-2 px-4 py-2.5 text-[14px] font-medium transition-colors",
               tab === t
-                ? "border-sage font-medium text-foreground"
+                ? "border-primary text-foreground font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
@@ -161,19 +262,378 @@ function CropIntelligence() {
         ))}
       </div>
 
-      {tab === "Plants" && (
+      {/* TAB 1: AI LIVE DIAGNOSIS STATION */}
+      {tab === "AI Diagnosis" && (
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-12">
+            {/* Left: Upload & Image Capture Panel */}
+            <div className="lg:col-span-5 space-y-4">
+              <Surface>
+                <div className="flex items-center justify-between mb-4">
+                  <CardTitle>🔬 AI Image Diagnosis Station</CardTitle>
+                  <span className="text-[11px] rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary">
+                    Live Model
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Upload a photo of a bell pepper leaf, stem, or fruit to run real-time ResNet50 neural network classification.
+                </p>
+
+                {/* Dropzone / Preview Area */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-all",
+                    imagePreview
+                      ? "border-primary/50 bg-accent/20"
+                      : "border-border hover:border-primary/40 hover:bg-accent/40"
+                  )}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+
+                  {imagePreview ? (
+                    <div className="relative w-full">
+                      <img
+                        src={imagePreview}
+                        alt="Crop upload preview"
+                        className="mx-auto max-h-64 rounded-xl object-contain shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploadedImage(null);
+                          setImagePreview(null);
+                          setAnalysisResult(null);
+                        }}
+                        className="absolute top-2 right-2 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="py-8">
+                      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3">
+                        <UploadCloud className="size-6" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">Click to upload or drag & drop</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, or WebP (max 10MB)</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Greenhouse Selector & Analyze Action */}
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="text-[12px] font-medium text-muted-foreground mb-1 block">
+                      Target Polyhouse Location
+                    </label>
+                    <select
+                      value={selectedPolyhouseId}
+                      onChange={(e) => setSelectedPolyhouseId(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {polyhouses.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.grid_rows} rows × {p.grid_bays} bays)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    disabled={!imagePreview || isAnalyzing}
+                    onClick={handleRunAnalysis}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow transition-opacity disabled:opacity-50 hover:opacity-90"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <RefreshCw className="size-4 animate-spin" />
+                        Running ResNet50 Inference...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="size-4" />
+                        Analyze Leaf with AI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </Surface>
+
+              {/* Supported Classes Reference Card */}
+              <Surface className="p-4">
+                <CardTitle className="text-xs font-semibold uppercase text-muted-foreground mb-3">
+                  Supported Model Classes (12 Conditions)
+                </CardTitle>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Anthracnose",
+                    "Bacterial Spot",
+                    "Blossom-End Rot",
+                    "Powdery Mildew",
+                    "Virus",
+                    "Down Leaf Aphid",
+                    "Fruit Thrips",
+                    "Upperleaf Thrips",
+                    "Larva",
+                    "Snail",
+                    "Magnesium",
+                    "Healthy",
+                  ].map((cls) => (
+                    <span
+                      key={cls}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-[11px] font-medium border border-border/60",
+                        cls === "Healthy"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-muted/60 text-muted-foreground"
+                      )}
+                    >
+                      {cls}
+                    </span>
+                  ))}
+                </div>
+              </Surface>
+            </div>
+
+            {/* Right: AI Output & Botanical Diagnosis Fact Sheet */}
+            <div className="lg:col-span-7 space-y-4">
+              {analysisResult ? (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  {/* Diagnosis Hero Card */}
+                  <Surface className="border-l-4 border-l-primary p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            AI Diagnosis Result
+                          </span>
+                          <StatusBadge
+                            tone={
+                              analysisResult.is_healthy
+                                ? "healthy"
+                                : analysisResult.severity === "Critical"
+                                ? "critical"
+                                : "warning"
+                            }
+                          >
+                            {analysisResult.severity} Severity
+                          </StatusBadge>
+                        </div>
+                        <h2 className="text-2xl font-bold text-foreground mt-1">
+                          {analysisResult.formatted_title}
+                        </h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Classification: <span className="font-medium text-foreground">{analysisResult.issue_type}</span> · Category: {analysisResult.class_information?.category || "Pathogen"}
+                        </p>
+                      </div>
+
+                      {/* Confidence Gauge */}
+                      <div className="rounded-2xl border border-border bg-accent/40 p-3 text-center min-w-[110px]">
+                        <p className="text-[11px] text-muted-foreground font-medium">Confidence</p>
+                        <p className="text-2xl font-extrabold text-foreground">
+                          {analysisResult.confidence_percent}%
+                        </p>
+                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          {analysisResult.confidence_level} Reliability
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* DB Save confirmation notification */}
+                    {analysisResult.incident_id && (
+                      <div className="mt-4 flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Database className="size-3.5" />
+                          Saved to Database Incident #{analysisResult.incident_id}
+                        </span>
+                        <span className="text-[11px] opacity-80">
+                          Polyhouse: {analysisResult.polyhouse_id}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Causes and Pathogen Summary */}
+                    <div className="mt-4 rounded-xl bg-card border border-border p-4">
+                      <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                        <Activity className="size-3.5 text-primary" />
+                        Etiology & Causal Factors
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {analysisResult.summary_causes}
+                      </p>
+                    </div>
+
+                    {/* Symptoms Checklist */}
+                    {analysisResult.symptoms && analysisResult.symptoms.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                          <Leaf className="size-3.5 text-sage" />
+                          Identified Visual Symptoms
+                        </p>
+                        <ul className="grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2">
+                          {analysisResult.symptoms.map((s, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <span className="size-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                              <span>{s}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Actionable IPM & Management Recommendations */}
+                    {analysisResult.management_recommendations && analysisResult.management_recommendations.length > 0 && (
+                      <div className="mt-5 rounded-xl border border-border bg-cream/40 dark:bg-accent/20 p-4">
+                        <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                          <ShieldAlert className="size-3.5 text-peach" />
+                          Recommended Agronomic IPM Management
+                        </p>
+                        <ul className="space-y-1.5 text-xs text-muted-foreground">
+                          {analysisResult.management_recommendations.slice(0, 5).map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </Surface>
+
+                  {/* Top 5 Neural Network Class Probabilities */}
+                  {analysisResult.top_5_predictions && analysisResult.top_5_predictions.length > 0 && (
+                    <Surface>
+                      <CardTitle className="text-sm font-semibold mb-3">
+                        📊 Top-5 Predictions Probability Distribution
+                      </CardTitle>
+                      <div className="space-y-2.5">
+                        {analysisResult.top_5_predictions.map((p) => (
+                          <div key={p.rank} className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-medium text-foreground">
+                                #{p.rank} {p.class_name}
+                              </span>
+                              <span className="font-mono text-muted-foreground">
+                                {p.confidence_percent}%
+                              </span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all duration-500",
+                                  p.rank === 1 ? "bg-primary" : "bg-muted-foreground/30"
+                                )}
+                                style={{ width: `${Math.max(p.confidence_percent, 2)}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Surface>
+                  )}
+                </div>
+              ) : (
+                <Surface className="flex flex-col items-center justify-center text-center p-12 h-full min-h-[380px]">
+                  <div className="size-14 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-4">
+                    <Sparkles className="size-7" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground">Awaiting Image for AI Analysis</h3>
+                  <p className="text-xs text-muted-foreground max-w-sm mt-1">
+                    Upload a plant leaf photo on the left and click "Analyze Leaf with AI" to generate real-time ResNet50 diagnosis, botanical cause summary, and IPM treatment protocols.
+                  </p>
+                </Surface>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: DISEASE & INCIDENT REGISTRY */}
+      {tab === "Disease Registry" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            <KpiCard label="Total Plants" value={totalPlantsCount.toLocaleString()} tone="sage" />
-            <KpiCard label="Inspected" value={totalPlantsCount.toLocaleString()} delta="100%" tone="mint" />
-            <KpiCard label="Anomalies" value={String(apiAnomalies.length)} hint="AI Flagged" tone="peach" />
+            <KpiCard label="Healthy Plants" value="1,192" tone="mint" />
+            <KpiCard label="Suspected Stress" value="42" tone="butter" />
+            <KpiCard label="High Priority Anomalies" value={String(anomaliesList.length)} tone="peach" />
+          </div>
+
+          <Surface className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    {["Plant / Grid", "Location", "Detected Condition", "AI Confidence", "Probable Causes & Symptoms", "Status", "Actions"].map((h) => (
+                      <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {anomaliesList.map((d) => (
+                    <tr
+                      key={d.id}
+                      onClick={() => setSelectedIncident(d.raw)}
+                      className={cn(
+                        "cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-accent/50",
+                        d.confidence >= 90 && "bg-critical-soft/30",
+                      )}
+                    >
+                      <td className="px-5 py-3 font-medium flex items-center gap-2">
+                        {d.image_url && (
+                          <img src={d.image_url} alt="" className="size-7 rounded-md object-cover border border-border shrink-0" />
+                        )}
+                        <span>{d.plant}</span>
+                      </td>
+                      <td className="px-5 py-3">{d.row}</td>
+                      <td className="px-5 py-3 font-medium text-foreground">{d.disease}</td>
+                      <td className="px-5 py-3">
+                        <span className="font-mono font-medium">{d.confidence}%</span>
+                      </td>
+                      <td className="px-5 py-3 text-muted-foreground max-w-xs truncate">{d.causes}</td>
+                      <td className="px-5 py-3">
+                        <StatusBadge tone={statusTone(d.severity)}>{d.severity || d.status}</StatusBadge>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedIncident(d.raw);
+                          }}
+                          className="rounded-lg border border-border px-2.5 py-1 text-[12px] hover:bg-accent"
+                        >
+                          View Fact Sheet
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Surface>
+        </div>
+      )}
+
+      {/* TAB 3: PLANTS GRID */}
+      {tab === "Plants Grid" && (
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <KpiCard label="Total Monitored Plants" value={totalPlantsCount.toLocaleString()} tone="sage" />
+            <KpiCard label="Inspection Coverage" value={totalPlantsCount.toLocaleString()} delta="100%" tone="mint" />
+            <KpiCard label="Flagged Anomalies" value={String(apiAnomalies.length)} hint="AI Detected" tone="peach" />
           </div>
           <Surface className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    {["Plant ID", "Row", "Position", "Status", "Last Inspection"].map((h) => (
+                    {["Plant ID", "Row", "Position", "Health Status", "Last Inspection"].map((h) => (
                       <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
                     ))}
                   </tr>
@@ -201,200 +661,51 @@ function CropIntelligence() {
         </div>
       )}
 
-      {tab === "Disease" && (
+      {/* TAB 4: FRUIT YIELD */}
+      {tab === "Fruit Yield" && (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            <KpiCard label="Healthy" value="1,192" tone="mint" />
-            <KpiCard label="Suspected" value="42" tone="butter" />
-            <KpiCard label="High Priority" value={String(anomaliesList.length)} tone="peach" />
+            <KpiCard label="Total Fruit Count" value="3,682" delta="+6.2%" tone="sage" />
+            <KpiCard label="Average per Plant" value="2.95" tone="mint" />
+            <KpiCard label="Harvest-Ready" value="48%" tone="butter" />
           </div>
-          <Surface className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    {["Plant", "Row", "Disease", "AI Confidence", "Probable Causes", "Status", ""].map((h) => (
-                      <th key={h} className="whitespace-nowrap px-5 py-3 font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {anomaliesList.map((d) => (
-                    <tr
-                      key={d.id || d.plant}
-                      className={cn(
-                        "border-b border-border/60 last:border-0",
-                        d.confidence >= 90 && "bg-critical-soft/50",
-                      )}
-                    >
-                      <td className="px-5 py-3 font-medium">{d.plant}</td>
-                      <td className="px-5 py-3">{d.row}</td>
-                      <td className="px-5 py-3">{d.disease}</td>
-                      <td className="px-5 py-3">{d.confidence}%</td>
-                      <td className="px-5 py-3 text-muted-foreground max-w-xs truncate">{d.causes}</td>
-                      <td className="px-5 py-3">
-                        <StatusBadge tone={statusTone(d.status)}>{d.status}</StatusBadge>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        {canManage ? (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => toast("Remark added", { description: d.plant })}
-                              className="rounded-lg border border-border px-2.5 py-1 text-[12px] hover:bg-accent"
-                            >
-                              Remark
-                            </button>
-                            <button
-                              onClick={() => toast.success(`${d.plant} marked resolved`)}
-                              className="rounded-lg border border-border px-2.5 py-1 text-[12px] hover:bg-accent"
-                            >
-                              Resolve
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[12px] text-muted-foreground">Read only</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
-              AI predictions are immutable — reviews and remarks are recorded alongside them.
-            </p>
-          </Surface>
-        </div>
-      )}
 
-      {tab === "Fruits" && (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-[1fr_1.3fr]">
-            <Surface className="flex flex-col justify-center">
-              <p className="text-[13px] text-muted-foreground">Total Fruits</p>
-              <p className="mt-2 text-[44px] font-medium leading-none tracking-tight">3,682</p>
-              <p className="mt-3 text-[13px] text-sage">↑ 8.6% vs yesterday</p>
-              <div className="mt-6 space-y-3">
-                <MetricRow label="Average / Plant" value="2.95" />
-                <MetricRow label="Highest Production Row" value="Row 12 · 428 Fruits" />
-                <MetricRow label="Highest Producing Plant" value="P-1248 · 18 Fruits" />
-              </div>
-            </Surface>
+          <div className="grid gap-6 lg:grid-cols-2">
             <Surface>
-              <CardTitle>Row Ranking</CardTitle>
-              <div className="space-y-3.5">
-                {rowProduction.map((r) => (
-                  <div key={r.row}>
-                    <div className="mb-1.5 flex justify-between text-[13px]">
-                      <span className="text-muted-foreground">{r.row}</span>
-                      <span className="font-medium">{r.fruits}</span>
-                    </div>
-                    <ProgressBar value={(r.fruits / 428) * 100} />
-                  </div>
-                ))}
-              </div>
+              <CardTitle>Fruit Count by Row</CardTitle>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={rowProduction}>
+                  <XAxis dataKey="row" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+                  <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+                  <Tooltip {...chartTip} />
+                  <Bar dataKey="fruits" fill="var(--sage)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Surface>
+
+            <Surface>
+              <CardTitle>4-Day Growth Progression</CardTitle>
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={growthTrend}>
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+                  <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
+                  <Tooltip {...chartTip} />
+                  <Area type="monotone" dataKey="fruits" stroke="var(--sage)" fill="var(--sage-soft)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
             </Surface>
           </div>
-          <Surface className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    {["Plant", "Row", "Current Fruits", "Previous", "Change"].map((h) => (
-                      <th key={h} className="px-5 py-3 font-medium">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {plantsList.slice(0, 8).map((p) => (
-                    <tr
-                      key={p.id}
-                      onClick={() => setDrawer(p)}
-                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-accent/50"
-                    >
-                      <td className="px-5 py-3 font-medium">{p.id}</td>
-                      <td className="px-5 py-3">{p.row}</td>
-                      <td className="px-5 py-3">{p.fruits}</td>
-                      <td className="px-5 py-3 text-muted-foreground">{p.previousFruits}</td>
-                      <td className="px-5 py-3 text-sage">
-                        +{(((p.fruits - p.previousFruits) / p.previousFruits) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Surface>
         </div>
       )}
 
-      {tab === "Growth" && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Surface>
-            <CardTitle>Fruit Trend</CardTitle>
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={growthTrend}>
-                <defs>
-                  <linearGradient id="fruitFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--sage)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="var(--sage)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={44} />
-                <Tooltip {...chartTip} />
-                <Area type="monotone" dataKey="fruits" stroke="var(--sage)" strokeWidth={2} fill="url(#fruitFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Surface>
-          <Surface>
-            <CardTitle>Plants Inspected</CardTitle>
-            <ResponsiveContainer width="100%" height={240}>
-              <LineChart data={growthTrend}>
-                <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-                <YAxis tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" width={44} />
-                <Tooltip {...chartTip} />
-                <Line type="monotone" dataKey="plants" stroke="var(--mint)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Surface>
-          <Surface className="lg:col-span-2">
-            <CardTitle>Plants Lagging</CardTitle>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {plantsList.slice(0, 3).map((p) => (
-                <div key={p.id} className="rounded-xl bg-cream p-4">
-                  <p className="text-[14px] font-medium">🌱 {p.id}</p>
-                  <p className="mt-1 text-[12px] text-muted-foreground">{p.row} · Position {p.position}</p>
-                  <div className="mt-3 flex items-end gap-4 text-[13px]">
-                    <div>
-                      <p className="text-muted-foreground">Previous</p>
-                      <p className="font-medium">{p.previousFruits}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Current</p>
-                      <p className="font-medium">{p.fruits}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Growth</p>
-                      <p className="font-medium text-sage">
-                        +{(((p.fruits - p.previousFruits) / p.previousFruits) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Surface>
-        </div>
-      )}
-
+      {/* TAB 5: WATER STRESS */}
       {tab === "Water Stress" && (
         <div className="grid gap-6 lg:grid-cols-2">
           <Surface>
-            <CardTitle>Stress Distribution</CardTitle>
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="relative min-w-[180px] flex-1">
-                <ResponsiveContainer width="100%" height={210}>
+            <CardTitle>Canopy Water Stress Index</CardTitle>
+            <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:justify-around">
+              <div className="relative size-44">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={waterStress}
@@ -432,6 +743,7 @@ function CropIntelligence() {
               </div>
             </div>
           </Surface>
+
           <Surface>
             <CardTitle>Weekly Stress Trend</CardTitle>
             <ResponsiveContainer width="100%" height={210}>
@@ -443,29 +755,93 @@ function CropIntelligence() {
               </LineChart>
             </ResponsiveContainer>
           </Surface>
-          <Surface className="lg:col-span-2">
-            <CardTitle>Affected Rows</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              {["Row 03", "Row 07", "Row 15", "Row 19"].map((r) => (
-                <span key={r} className="rounded-full bg-warning-soft px-3 py-1.5 text-[12px] font-medium text-warning">
-                  {r} · moderate
-                </span>
-              ))}
-              <span className="rounded-full bg-critical-soft px-3 py-1.5 text-[12px] font-medium text-critical">
-                Row 21 · high
-              </span>
-            </div>
-          </Surface>
         </div>
       )}
 
+      {/* DETAILED INCIDENT FACT SHEET DRAWER */}
+      {selectedIncident && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-foreground/20 backdrop-blur-xs" onClick={() => setSelectedIncident(null)} />
+          <div className="absolute inset-y-0 right-0 w-full max-w-lg overflow-y-auto border-l border-border bg-card p-6 shadow-2xl duration-300 animate-in slide-in-from-right">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-[11px] font-mono text-muted-foreground">{selectedIncident.id}</span>
+                <h3 className="text-xl font-bold text-foreground mt-0.5">{selectedIncident.title}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Category: {selectedIncident.issue_type} · Severity: {selectedIncident.severity}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedIncident(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {selectedIncident.image_url && (
+              <div className="mt-4 overflow-hidden rounded-xl border border-border bg-black/5">
+                <img
+                  src={selectedIncident.image_url}
+                  alt="Captured anomaly frame"
+                  className="max-h-56 w-full object-contain"
+                />
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-accent/40 p-3">
+                <p className="text-[11px] text-muted-foreground">AI Confidence</p>
+                <p className="text-lg font-bold text-foreground">
+                  {Math.round(selectedIncident.ai_confidence <= 1 ? selectedIncident.ai_confidence * 100 : selectedIncident.ai_confidence)}%
+                </p>
+              </div>
+              <div className="rounded-xl bg-accent/40 p-3">
+                <p className="text-[11px] text-muted-foreground">Resolution Status</p>
+                <p className="text-lg font-bold text-foreground">{selectedIncident.status || "OPEN"}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-border p-4 bg-muted/20">
+                <h4 className="text-xs font-semibold uppercase text-foreground mb-1.5">
+                  Etiology & Agronomic Causes
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {selectedIncident.causes || "Fungal spores or pathogen proliferation in high canopy humidity."}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    toast.success(`Incident ${selectedIncident.id} marked resolved`);
+                    setSelectedIncident(null);
+                  }}
+                  className="flex-1 rounded-xl bg-primary px-3 py-2.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                >
+                  Mark as Resolved
+                </button>
+                <button
+                  onClick={() => setSelectedIncident(null)}
+                  className="flex-1 rounded-xl border border-border px-3 py-2.5 text-xs font-medium hover:bg-accent"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PLANT DETAIL DRAWER */}
       {drawer && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-foreground/20" onClick={() => setDrawer(null)} />
-          <div className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l border-border bg-card p-6 shadow-[var(--shadow-lift)] duration-300 animate-in slide-in-from-right">
+          <div className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l border-border bg-card p-6 shadow-2xl duration-300 animate-in slide-in-from-right">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="section-title">🌱 {drawer.id}</h3>
+                <h3 className="text-lg font-bold text-foreground">🌱 {drawer.id}</h3>
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   {drawer.row} · Position {drawer.position}
                 </p>
@@ -480,11 +856,11 @@ function CropIntelligence() {
             </div>
 
             <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-xl bg-cream py-3">
+              <div className="rounded-xl bg-accent/40 py-3">
                 <p className="text-[12px] text-muted-foreground">Current</p>
                 <p className="mt-1 text-[18px] font-medium">{drawer.fruits}</p>
               </div>
-              <div className="rounded-xl bg-cream py-3">
+              <div className="rounded-xl bg-accent/40 py-3">
                 <p className="text-[12px] text-muted-foreground">Previous</p>
                 <p className="mt-1 text-[18px] font-medium">{drawer.previousFruits}</p>
               </div>
@@ -496,46 +872,17 @@ function CropIntelligence() {
               </div>
             </div>
 
-            <div className="mt-6">
-              <p className="mb-3 text-[13px] font-medium">Fruit trend</p>
-              <ResponsiveContainer width="100%" height={160}>
-                <LineChart
-                  data={[
-                    { d: "11 Aug", f: drawer.previousFruits },
-                    { d: "12 Aug", f: Math.round((drawer.previousFruits + drawer.fruits) / 2) },
-                    { d: "13 Aug", f: drawer.fruits },
-                  ]}
-                >
-                  <XAxis dataKey="d" tickLine={false} axisLine={false} fontSize={12} stroke="var(--muted-foreground)" />
-                  <Tooltip {...chartTip} />
-                  <Line type="monotone" dataKey="f" stroke="var(--sage)" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={() => {
+                  toast.success("Flagged for follow-up inspection");
+                  setDrawer(null);
+                }}
+                className="flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90"
+              >
+                Schedule Rover Scan
+              </button>
             </div>
-
-            <div className="mt-6">
-              <p className="mb-2 text-[13px] font-medium">Inspection history</p>
-              <MetricRow label="13 Aug" value={`${drawer.fruits} fruits`} />
-              <MetricRow label="12 Aug" value={`${Math.round((drawer.previousFruits + drawer.fruits) / 2)} fruits`} />
-              <MetricRow label="11 Aug" value={`${drawer.previousFruits} fruits`} />
-            </div>
-
-            {canManage && (
-              <div className="mt-6 flex gap-2">
-                <button
-                  onClick={() => toast("Remark added", { description: drawer.id })}
-                  className="flex-1 rounded-xl border border-border px-3 py-2 text-[13px] font-medium hover:bg-accent"
-                >
-                  Add Remark
-                </button>
-                <button
-                  onClick={() => toast.success("Marked action required")}
-                  className="flex-1 rounded-xl bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90"
-                >
-                  Action Required
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

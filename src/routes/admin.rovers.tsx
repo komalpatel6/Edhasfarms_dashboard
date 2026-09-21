@@ -29,10 +29,10 @@ import {
   Wind,
   Compass,
   Gauge,
-  Layers,
-  Terminal
+  Terminal,
 } from "lucide-react";
-import { useRovers, usePolyhouses, useDiscoveredRovers, useRoverLiveTelemetry, DiscoveredRover } from "@/hooks/use-api";
+import { toast } from "sonner";
+import { useRovers, usePolyhouses, useDiscoveredRovers, useRoverLiveTelemetry, DiscoveredRover, analyzeCropImageJson } from "@/hooks/use-api";
 
 export const Route = createFileRoute("/admin/rovers")({
   head: () => ({
@@ -787,6 +787,37 @@ export function RoverManagement() {
                       <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/60 px-2 py-1 text-[10px] font-mono text-emerald-400 backdrop-blur-xs">
                         <span className="size-1.5 rounded-full bg-red-500 animate-ping" />
                         LIVE CAMERA · AI VISION ACTIVE · 10 FPS
+                      </div>
+                      <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                        <button
+                          onClick={async () => {
+                            if (!telemetry?.camera_frame) return;
+                            toast.info("Analyzing rover frame with PyTorch ResNet50 model...");
+                            try {
+                              const res = await analyzeCropImageJson({
+                                image_b64: telemetry.camera_frame,
+                                polyhouse_id: active.polyhouse_id || "poly-01",
+                                rover_id: active.id,
+                                auto_save_incident: true
+                              });
+                              if (res.is_healthy) {
+                                toast.success("AI Result: Healthy Foliage", {
+                                  description: `Confidence: ${res.confidence_percent}% (${res.confidence_level})`
+                                });
+                              } else {
+                                toast.warning(`AI Flagged: ${res.formatted_title}`, {
+                                  description: `Confidence: ${res.confidence_percent}% · Auto-saved to Incidents DB`
+                                });
+                              }
+                            } catch (e: any) {
+                              toast.error("AI Analysis failed: " + (e?.message || "Unknown error"));
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-600 text-white px-2.5 py-1 text-[11px] font-semibold backdrop-blur shadow cursor-pointer transition-all"
+                        >
+                          <Sparkles className="size-3" />
+                          Run AI Disease Check
+                        </button>
                       </div>
                     </div>
                   ) : null}

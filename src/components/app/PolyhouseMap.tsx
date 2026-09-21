@@ -227,8 +227,12 @@ export function PolyhouseMap({
                     <button
                       ref={roverButtonRef}
                       onClick={() => setPopup((p) => !p)}
+                      style={{
+                        left: `${(rover as any).x_pct ?? 58}%`,
+                        top: `${(rover as any).y_pct ?? 41}%`,
+                      }}
                       className={cn(
-                        "absolute left-[58%] top-[41%] -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
+                        "absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out",
                         offline && "opacity-45 saturate-0",
                       )}
                       aria-label="Rover marker"

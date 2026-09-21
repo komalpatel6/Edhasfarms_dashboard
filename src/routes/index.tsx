@@ -375,12 +375,12 @@ function DashboardContent() {
       <div className="w-full">
         <PolyhouseMap
           title={selectedHouse?.name || "Polyhouse Estate"}
-          subtitle={selectedHouse ? `Live inspection · ${selectedHouse.name}` : "No Polyhouses Registered"}
+          subtitle={selectedHouse ? `Live inspection · ${selectedHouse.name}` : "Live Telemetry · Automated Inspection Arena"}
           height="h-[320px]"
           rover={activeRover ? {
             id: activeRover.id,
-            serial: "BP-RVR-2025-0031",
-            firmware: "v2.4.1",
+            serial: `BP-${activeRover.id}`,
+            firmware: "v2.5.0",
             status: activeRover.status as any,
             battery: activeRover.battery_level,
             speed: activeRover.scan_speed_m_s,

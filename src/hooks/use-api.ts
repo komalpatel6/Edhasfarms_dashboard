@@ -106,24 +106,26 @@ export function useRovers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRovers = () => {
-    setLoading(true);
+  const fetchRovers = (isInitial = false) => {
+    if (isInitial) setLoading(true);
     apiRequest<Rover[]>("/rovers/")
       .then((res) => {
-        setData(res);
-        setLoading(false);
+        setData(Array.isArray(res) ? res : []);
+        if (isInitial) setLoading(false);
       })
       .catch((err) => {
         setError(err.message);
-        setLoading(false);
+        if (isInitial) setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchRovers();
+    fetchRovers(true);
+    const interval = setInterval(() => fetchRovers(false), 4000);
+    return () => clearInterval(interval);
   }, []);
 
-  return { data, loading, error, refetch: fetchRovers };
+  return { data, loading, error, refetch: () => fetchRovers(false) };
 }
 
 export function useAlerts() {
@@ -174,3 +176,122 @@ export function usePolyhouseLiveMetrics(polyhouseId: string) {
 
   return { data, loading };
 }
+
+export interface DiscoveredRover {
+  id: string;
+  name: string;
+  polyhouse_id?: string;
+  status: string;
+  battery_level: number;
+  scan_speed_m_s: number;
+  inspection_interval_hours: number;
+  inspection_duration_mins: number;
+  cockpit_url?: string;
+  is_live: boolean;
+}
+
+export function useDiscoveredRovers() {
+  const [data, setData] = useState<DiscoveredRover[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchDiscovered = () => {
+    setLoading(true);
+    apiRequest<DiscoveredRover[]>("/rovers/discovered")
+      .then((res) => {
+        setData(Array.isArray(res) ? res : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setData([]);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchDiscovered();
+    const interval = setInterval(fetchDiscovered, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { data, loading, refetch: fetchDiscovered };
+}
+
+export interface RoverLiveTelemetry {
+  rover_id: string;
+  rover_name: string;
+  is_online: boolean;
+  state: string;
+  battery?: {
+    percentage: number;
+    voltage_v: number;
+    current_draw_a: number;
+    is_low: boolean;
+    is_critical: boolean;
+  };
+  pose?: {
+    x: number;
+    y: number;
+    theta_rad?: number;
+    theta_deg?: number;
+    linear_velocity_m_s?: number;
+    angular_velocity_rad_s?: number;
+    total_odometry_m?: number;
+  };
+  environment?: {
+    temperature_c: number;
+    humidity_pct: number;
+    co2_ppm: number;
+    light_intensity_lux?: number;
+    lux?: number;
+    vpd_kpa: number;
+  };
+  soil?: {
+    moisture_pct: number;
+    temperature_c: number;
+    ec_ds_m: number;
+    ph: number;
+    nitrogen_ppm: number;
+    phosphorus_ppm: number;
+    potassium_ppm: number;
+  };
+  lidar?: {
+    min_distance_m: number;
+    obstacles_count: number;
+    beam_count: number;
+  };
+  camera_frame?: string | null;
+  discovered_anomalies_count?: number;
+  logs?: Array<{
+    timestamp: string;
+    level: string;
+    message: string;
+  }>;
+}
+
+export function useRoverLiveTelemetry(roverId: string | null) {
+  const [data, setData] = useState<RoverLiveTelemetry | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchTelemetry = () => {
+    if (!roverId) return;
+    apiRequest<RoverLiveTelemetry>(`/rovers/${roverId}/live-telemetry`)
+      .then((res) => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    if (!roverId) return;
+    fetchTelemetry();
+    const interval = setInterval(fetchTelemetry, 2000);
+    return () => clearInterval(interval);
+  }, [roverId]);
+
+  return { data, loading, refetch: fetchTelemetry };
+}
+
+
